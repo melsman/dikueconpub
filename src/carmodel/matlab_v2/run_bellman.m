@@ -41,7 +41,7 @@ ev0=zeros(s.ns, 1); % initial guess on expected value function
 ev_sa= dpsolver.sa(bellman, ev0, ap);
 ev_poly= dpsolver.poly(bellman, ev0(:,t), ap, mp.bet);
 
-
+disp(ev_sa);
 
 
 % evaluate excess demand for a given price vector, p
