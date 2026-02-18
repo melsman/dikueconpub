@@ -8,7 +8,7 @@
 % clc
 
 % read default parameters
-function [ev_sa, ev_poly]=run_bellman_n(n, c, abar, type, pri)
+function [ev_sa, ev_poly]=run_bellman_n(n, c, abar, type, pri, mp0a)
 
     
     if nargin<4
@@ -17,8 +17,11 @@ function [ev_sa, ev_poly]=run_bellman_n(n, c, abar, type, pri)
     if nargin<5
         pri = true;
     end
-
-    mp0=trmodel.default_params;
+    if nargin<6
+        mp0=trmodel.default_params;
+    else
+        mp0 = mp0a;
+    end
 
     mp0.tw =  ones(n,1)/n;
     

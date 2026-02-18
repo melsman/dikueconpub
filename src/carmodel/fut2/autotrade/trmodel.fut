@@ -28,7 +28,16 @@ module type trmodel = {
   val set_pscrap     [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> [c]t ->
                                           mp[n][c][Ax][ns][nd]
 
-  val set_u_0        [n][c][Ax][ns][nd] : [n][c]t -> mp[n][c][Ax][ns][nd] ->
+  val set_u_0      [n][c][Ax][ns][nd] : [n][c]t -> mp[n][c][Ax][ns][nd] ->
+                                          mp[n][c][Ax][ns][nd]
+                                      
+  val set_u_a      [n][c][Ax][ns][nd] : [n][c]t -> mp[n][c][Ax][ns][nd] ->
+                                          mp[n][c][Ax][ns][nd]
+
+  val set_u_a_sq        [n][c][Ax][ns][nd] : [n][c]t -> mp[n][c][Ax][ns][nd] ->
+                                          mp[n][c][Ax][ns][nd]
+
+  val set_psych_transcost [n][c][Ax][ns][nd] : [n]t -> mp[n][c][Ax][ns][nd] ->
                                           mp[n][c][Ax][ns][nd]
 
   type consumertype = i64
@@ -90,6 +99,7 @@ module trmodel (R:real) : trmodel with t = R.t = {
       psych_transcost : [n]t,
       u_0             : [n][c]t,
       u_a             : [n][c]t,
+      u_a_sq          : [n][c]t,
       sigma           : t,
       sigma_s         : t,
       ns              : [ns](),
@@ -106,6 +116,7 @@ module trmodel (R:real) : trmodel with t = R.t = {
      psych_transcost = replicate n (R.i32 0),
      u_0             = replicate n (replicate c (R.f32 6)),
      u_a             = replicate n (replicate c (R.f32(-0.5))),
+     u_a_sq             = replicate n (replicate c (R.f32(0.0))),
      sigma           = R.f32 1,
      sigma_s         = R.f32 0.5,
      ns              = replicate (c*Ax+1) (),
@@ -131,6 +142,18 @@ module trmodel (R:real) : trmodel with t = R.t = {
   def set_u_0 [n][c][Ax][ns][nd] (u_0:[n][c]t)
               (mp:mp [n][c][Ax][ns][nd]) : mp [n][c][Ax][ns][nd] =
     mp with u_0=u_0
+
+  def set_u_a [n][c][Ax][ns][nd] (u_a:[n][c]t)
+              (mp:mp [n][c][Ax][ns][nd]) : mp [n][c][Ax][ns][nd] =
+    mp with u_a=u_a
+  
+  def set_u_a_sq [n][c][Ax][ns][nd] (u_a_sq:[n][c]t)
+              (mp:mp [n][c][Ax][ns][nd]) : mp [n][c][Ax][ns][nd] =
+    mp with u_a_sq=u_a_sq
+
+  def set_psych_transcost [n][c][Ax][ns][nd] (psych_transcost:[n]t)
+              (mp:mp [n][c][Ax][ns][nd]) : mp [n][c][Ax][ns][nd] =
+    mp with psych_transcost=psych_transcost
 
   type consumertype = i64
 
@@ -163,7 +186,7 @@ module trmodel (R:real) : trmodel with t = R.t = {
   def u_car [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (tau:consumertype) ({cartype,age}: car) : t =
     let () = assert (tau >= 0 && tau < n) ()
     in if age == Ax then R.nan
-       else R.(mp.u_0[tau,cartype] + mp.u_a[tau,cartype] * i64 age)
+       else R.(mp.u_0[tau,cartype] + mp.u_a[tau,cartype] * i64 age+mp.u_a_sq[tau,cartype] * (i64 age)*(i64 age))
 
   def nanmax2 (x:t) (y:t) : t =
     R.(if isnan x

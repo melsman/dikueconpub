@@ -39,8 +39,7 @@ methods (Static)
     % ******************************************
     mp.acc_0=-10;
     mp.acc_a=0;
-    mp.acc_even=0;
-
+    mp.acc_even={0};
   end % end of default_params
 
   function [mp] =setparams(mp0)
@@ -95,14 +94,6 @@ methods (Static)
     mp.pnew=100;    % new car prices (cartype specific)
     mp.pscrap=0;    % scrapcar prices (cartype specific)
     mp.p_fuel=5;    % pricer of fuel (DKK/liter) from average fuel price before tax
-
-    % ******************************************
-    % accident parameters (alpha)
-    % ap=1./(1+exp(-apv)), where apv = mp.acc_0{ct} + mp.acc_a{ct}.*a + mp.acc_even{ct}*(1-mod(a,2));     
-    % ******************************************
-    mp.acc_0=0;
-    mp.acc_a=0;
-    mp.acc_even=0;
     
     % ********************************************************************************
     % update parameters
@@ -127,7 +118,7 @@ methods (Static)
     % only the first required elements are returned so that mp are consistent with model. 
 
     % Parameters that vary over car types, j
-    param_j       = {'pnew', 'pscrap', 'acc_0', 'acc_a', 'acc_even'};
+    param_j       = {'pnew', 'pscrap'};
     for k=1:numel(param_j)
       mp.(param_j{k}) =extend(mp.(param_j{k}),1, mp.ncartypes);
     end  
