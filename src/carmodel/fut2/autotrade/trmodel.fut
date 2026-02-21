@@ -372,10 +372,11 @@ module trmodel (R:real) : trmodel with t = R.t = {
        |> flatten
        |> (++[ns-1]) -- the keep state
       ) :> [ns]i64
-    let (acc_mats, _) :  (acc_prob_mat[ns], acc_prob[ns]) = acc_prob_mat mp
-    in {trade = sp.eye ns ns,
-        notrade = sp.sparse ns ns (zip3 (iota ns) next_keep (replicate ns (R.i32 1))), -- replace with (map (x->R.i32 1-x) accs)
-        acc = sp.scale R.(i64 0- i64 1) acc_mats}
+    let (acc_mats, accs) :  (acc_prob_mat[ns], acc_prob[ns]) = acc_prob_mat mp
+    let vals = map (\x->R.(i64 1 - x)) accs
+    in {trade = sp.diag vals,
+        notrade = sp.sparse ns ns (zip3 (iota ns) next_keep (replicate ns (R.i32 1))),
+        acc = acc_mats}
 
   type ev[ns] = [ns]t
   def ev0 [n][c][Ax][ns][nd] (_:mp [n][c][Ax][ns][nd]) : ev[ns] =
