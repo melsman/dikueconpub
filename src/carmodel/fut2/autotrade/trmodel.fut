@@ -438,7 +438,7 @@ module trmodel (R:real) : trmodel with t = R.t = {
       let trade_idx_n = nd-2
       let trade : [ns][trade_idx_n]t =                  -- trade: column 1 to nd-2 (of nd)
         let w : [ns]t =
-          ev                                            -- was: sp.smvm F.trade ev
+          age_transition_smvm_trade F ev                                            -- was: sp.smvm F.trade ev
           |> map (R.* mp.bet)
         let w' : [ns][trade_idx_n]t =
           w[0:trade_idx_n] |> replicate ns
