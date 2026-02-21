@@ -40,6 +40,9 @@ module type trmodel = {
   val set_psych_transcost [n][c][Ax][ns][nd] : [n]t -> mp[n][c][Ax][ns][nd] ->
                                           mp[n][c][Ax][ns][nd]
 
+  val set_acc_0 [n][c][Ax][ns][nd] : [c]t -> mp[n][c][Ax][ns][nd] ->
+                                          mp[n][c][Ax][ns][nd]
+
   type consumertype = i64
 
   -- car prices (for new and old cars)
@@ -62,6 +65,7 @@ module type trmodel = {
 
   type~ transition [ns] -- = {trade:sp.mat[ns][ns], notrade:sp.mat[ns][ns]}
   val age_transition [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> transition[ns]
+  val scaled_transition [ns] : t -> transition[ns] -> transition[ns]
 
   val age_transition_dmsmm_notrade [k] [ns] : [k][ns]t -> transition[ns] -> [k][ns]t
   val age_transition_dmsmm_trade [k] [ns] : [k][ns]t -> transition[ns] -> [k][ns]t
@@ -175,6 +179,10 @@ module trmodel (R:real) : trmodel with t = R.t = {
   def set_psych_transcost [n][c][Ax][ns][nd] (psych_transcost:[n]t)
               (mp:mp [n][c][Ax][ns][nd]) : mp [n][c][Ax][ns][nd] =
     mp with psych_transcost=psych_transcost
+
+  def set_acc_0 [n][c][Ax][ns][nd] (acc_0:[c]t)
+              (mp:mp [n][c][Ax][ns][nd]) : mp [n][c][Ax][ns][nd] =
+    mp with acc_0=acc_0
 
   type consumertype = i64
 
@@ -370,6 +378,9 @@ module trmodel (R:real) : trmodel with t = R.t = {
 
   type~ transition [ns] = {trade:sp.mat[ns][ns], notrade:sp.mat[ns][ns], acc:sp.mat[ns][ns]}
 
+  def scaled_transition [ns] (bet:t) (transition:transition[ns]) : transition[ns] =
+    {trade = sp.scale bet transition.trade, notrade =sp.scale bet transition.notrade, acc = sp.scale bet transition.acc}
+
   def age_transition [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) : transition[ns] =
     let next_keep : [ns]i64 =
       (tabulate_2d c Ax (\j a ->
@@ -407,7 +418,7 @@ module trmodel (R:real) : trmodel with t = R.t = {
   def age_transition_smvm_trade [ns] (transition:transition[ns]) (vct:[ns]t) : [ns]t =
     map2 (\x y->R.(x + y)) (sp.smvm transition.trade vct) (sp.smvm transition.acc vct)
 
-   def age_transition_smvm_notrade [ns] (transition:transition[ns]) (vct:[ns]t) : [ns]t =
+  def age_transition_smvm_notrade [ns] (transition:transition[ns]) (vct:[ns]t) : [ns]t =
     map2 (\x y->R.(x + y)) (sp.smvm transition.notrade vct) (sp.smvm transition.acc vct)  
   
 
@@ -420,7 +431,7 @@ module trmodel (R:real) : trmodel with t = R.t = {
               : ev[ns] -> (ev[ns], [ns][nd]t) =
     \(ev:ev[ns]) ->
       let keep : [ns]t =                     -- keep: column 0 (of nd)
-        sp.smvm F.notrade ev |> map (R.* mp.bet)
+        age_transition_smvm_notrade F ev |> map (R.* mp.bet)
         |> map2 (R.+) (utils[:,0])
         |> mapi (\i v -> if i == ns-1 then R.nan else v) -- no car
 
@@ -480,7 +491,7 @@ module trmodel (R:real) : trmodel with t = R.t = {
       map2 (\r x -> map (R.exp <-< (R./ mp.sigma) <-< (R.- x)) r) v ev1
     let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
     let delta : [ns][ns]t = trade_transition mp ccp
-    let dev = sp.scale mp.bet F.notrade |> sp.dmsmm delta
+    let dev = scaled_transition mp.bet F |> age_transition_dmsmm_notrade delta
     in (ev1,dev)
 
   def transition_notrade [ns] (tr:transition[ns]) : [ns][ns]t =   -- for testing

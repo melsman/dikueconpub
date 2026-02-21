@@ -20,11 +20,14 @@ entry test_simple_prices [c] (n:i64) (newprices:[c]f64) (Ax:i64) : trm.prices[c]
 
 -- ==
 -- entry: test_acc_prob
--- input { 2i64 2i64 3i64 }
+-- input { 2i64 2i64 3i64 -10i64 }
 -- output { [0.00004539786f64,0.00004539786f64,0.00004539786f64,0.00004539786f64,0.00004539786f64,0.00004539786f64,0f64] }
+-- input { 2i64 2i64 3i64 -3i64 }
+-- output { [0.04742587317f64,0.04742587317f64,0.04742587317f64,0.04742587317f64,0.04742587317f64,0.04742587317f64,0f64] }
 
-entry test_acc_prob (n:i64) (c:i64) (Ax:i64) : ?[ns].[ns]f64 =
+entry test_acc_prob (n:i64) (c:i64) (Ax:i64) (acc_0:i64) : ?[ns].[ns]f64 =
   let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
+  let mp = trm.set_acc_0 (replicate c (f64.i64(acc_0))) mp
   in trm.acc_prob mp
 
 -- ==
@@ -237,6 +240,7 @@ entry test_bellman [c] (n:i64) (newprices:[c]f64) (Ax:i64) : ?[ns].trm.ev[ns] =
 -- input { 2i64 [100f64,100f64] 2i64 2i64 }
 -- output { [13.43965002284233f64, 5.039207394202223f64, 13.43965002284233f64,
 --           5.039207394202223f64, 4.939207392712107f64] }
+
 entry test_bellmanN [c] (n:i64) (newprices:[c]f64) (Ax:i64) (N:i64) : ?[ns].trm.ev[ns] =
   let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
   let mp = trm.set_newprices mp newprices
