@@ -330,6 +330,7 @@ module trmodel (R:real) : trmodel with t = R.t = {
   type utility [ns][nd] = [ns][nd]t
   
   ----- This might be a place to improve the speed of the code? Kinda likely to be harder to read, though
+  ----- Actually, probably not, since it is only called once
   def utility [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:prices[c][Ax])
                                  (tau:consumertype) : utility[ns][nd] =
     -- notice: in decisions, car ages range from 0 to Ax-1 whereas
