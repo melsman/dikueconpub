@@ -268,3 +268,20 @@ entry test_bellmanN_acc [c] (n:i64) (newprices:[c]f64) (Ax:i64) (N:i64) (acc_0:i
   let util : trm.utility [ns][nd] = trm.utility mp p tau
   let tr = trm.age_transition mp
   in loop ev = trm.ev0 mp for _i < N do trm.bellman mp util tr ev
+
+
+-- ==
+-- entry: test_bellmanN_transcost
+-- input { 2i64 [100f64,100f64] 2i64 2i64 5i64 }
+-- output { [12.9008f64, 4.5001f64, 12.9008f64,
+--           4.5001f64, 4.4001f64] }
+
+entry test_bellmanN_transcost [c] (n:i64) (newprices:[c]f64) (Ax:i64) (N:i64) (transcost:i64) : ?[ns].trm.ev[ns] =
+  let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
+  let mp = trm.set_newprices mp newprices
+  let mp = trm.set_transcost(f64.i64 transcost) mp
+  let p = trm.simple_prices mp 0.85
+  let tau = 1
+  let util : trm.utility [ns][nd] = trm.utility mp p tau
+  let tr = trm.age_transition mp
+  in loop ev = trm.ev0 mp for _i < N do trm.bellman mp util tr ev

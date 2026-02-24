@@ -42,6 +42,9 @@ module type trmodel = {
 
   val set_acc_0 [n][c][Ax][ns][nd] : [c]t -> mp[n][c][Ax][ns][nd] ->
                                           mp[n][c][Ax][ns][nd]
+  
+  val set_transcost [n][c][Ax][ns][nd] : t -> mp[n][c][Ax][ns][nd] ->
+                                          mp[n][c][Ax][ns][nd]
 
   type consumertype = i64
 
@@ -126,7 +129,8 @@ module trmodel (R:real) : trmodel with t = R.t = {
       maxage          : [Ax](),
       acc_0           : [c]t,
       acc_a           : [c]t,
-      acc_even        : [c]t
+      acc_even        : [c]t,
+      transcost       : t
      }
 
   def mk (n:i64) (c:i64) (Ax:i64) : ?[ns][nd].mp[n][c][Ax][ns][nd] =
@@ -146,7 +150,8 @@ module trmodel (R:real) : trmodel with t = R.t = {
      maxage          = replicate Ax (),
      acc_0           = replicate c (R.i32 (-10)),
      acc_a           = replicate c (R.i32 0),
-     acc_even        = replicate c (R.i32 0)
+     acc_even        = replicate c (R.i32 0),
+     transcost       = R.i64 0
      }
 
   -- some utilities
@@ -184,6 +189,10 @@ module trmodel (R:real) : trmodel with t = R.t = {
               (mp:mp [n][c][Ax][ns][nd]) : mp [n][c][Ax][ns][nd] =
     mp with acc_0=acc_0
 
+  def set_transcost [n][c][Ax][ns][nd] (transcost:t)
+              (mp:mp [n][c][Ax][ns][nd]) : mp [n][c][Ax][ns][nd] =
+    mp with transcost=transcost
+
   type consumertype = i64
 
 
@@ -207,13 +216,13 @@ module trmodel (R:real) : trmodel with t = R.t = {
       (if age == Ax then mp.pscrap[cartype]
        else p[age,cartype])
 
-  def carprice_buy [n][c][Ax][ns][nd] (_mp:mp[n][c][Ax][ns][nd]) (p:prices[c][Ax]) (d:decision) : t =
+  def carprice_buy [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:prices[c][Ax]) (d:decision) : t =
     match d
     case #Keep -> R.nan
     case #Purge -> R.f32 0
     case #Trade {cartype,age} ->
       assert (age >= 0 && age < Ax)  -- notice age < Ax!!
-       (p[age,cartype])
+       (R.(p[age,cartype] + mp.transcost))
 
   ------- Car utility
 
