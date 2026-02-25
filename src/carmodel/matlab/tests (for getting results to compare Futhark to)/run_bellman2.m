@@ -13,16 +13,38 @@ mp = setparams.default(); % default parameters used for illustration
 mp.ntypes = 2;
 mp.ncartypes=2;
 mp.abar_j0 = {2,2};
+mp.pnew_notax = {100,100};
+mp.acc_0 = {-10,-10};
+mp.u_0 = {6, 6};
+mp.u_a = {-0.5, -0.5};
+mp.u_a_sq = {0.0, 0.0};
+mp.transcost = 0;
+mp.vat = 0;
+mp.cartax_lo =  0;   % registration tax (below kink, K_cartax_hi)
+mp.cartax_hi =  0;   % registration tax (above kink, K_cartax_hi)
+mp.tax_fuel  =  0;   % proportional fuel tax 
+mp.K_cartax_hi = 0;       % mp.K_cartax_hi before mp.cartax_hi tax kicks in
+mp.mum = {0.1, 0.1};
 
 % update model parameter dependencies
 mp = trmodel.update_mp(mp);
 
 % model indexing
 s = trmodel.index(mp);
+disp(mp.acc_0);
 
 % initialize prices where to solve bellman
-function simple_prices = simple_prices()
-p = equilibrium.price_init(mp,s);
+% p = equilibrium.price_init(mp,s);
+
+function [sp] = simple_prices(mp, r,s)
+    sp=nan(s.np,1);
+    for j=1:mp.ncartypes;
+        i=1:(mp.abar_j0{j}-1);
+        sp(s.ip{j}) = mp.pnew_notax{j}.*r.^i;
+    end
+end
+p = simple_prices(mp,0.85,s);
+disp(p);
 
 ev0=zeros(s.ns, mp.ntypes); % initial guess on expected value function
 
@@ -47,7 +69,7 @@ for t=1:mp.ntypes;
     bellman=@(ev) trmodel.bellman(mp, s, util(:,:,t), F, ev);
     ev_t = ev0(:, t);
 
-    for i=1:1;
+    for i=1:2;
        ev_t = bellman (ev_t);    
     end
 
@@ -56,6 +78,8 @@ for t=1:mp.ntypes;
 end
 
 disp(ev_sa)
+
+
 
 % evaluate excess demand for a given price vector, p
 % [ed, ded, sol]=equilibrium.edf(mp, s, p);
