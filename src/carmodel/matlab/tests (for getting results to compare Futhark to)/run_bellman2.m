@@ -1,7 +1,7 @@
 % This solves the bellman equation for a given set of prices and parameters
 
-addpath('matlabinclude');
-addpath('autotrade');
+addpath('..\matlabinclude');
+addpath('..\autotrade');
 
 clear
 clc

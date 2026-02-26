@@ -83,11 +83,19 @@ module type trmodel = {
   val vec_ev         [n][c][Ax][ns][nd] : mp [n][c][Ax][ns][nd] -> ev[ns] -> [ns]t
 
   -- the bellman equation
-  val bellman        [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> utility[ns][nd]
+
+  val bellman0        [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> utility[ns][nd]
+                                          -> transition[ns] -> ev[ns] -> (ev[ns], [ns][nd]t)
+                                          
+  val bellman         [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> utility[ns][nd]
                                           -> transition[ns] -> ev[ns] -> ev[ns]
-  val bellmanJ       [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> utility[ns][nd]
-                                          -> transition[ns] -> ev[ns]
-					  -> (ev[ns], [ns][ns]t)
+
+  val bellmanJ        [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> utility[ns][nd]
+                                          -> transition[ns] -> ev[ns] -> (ev[ns], [ns][ns]t)
+
+  -- trade transition
+
+  val trade_transition [n][c][Ax][ns][nd] :  mp[n][c][Ax][ns][nd] -> [ns][nd]t -> ([ns][ns]t, [ns]t, [ns][ns]t)
 
   -- for testing:
   val transition_notrade [ns] : transition[ns] -> [ns][ns]t
@@ -105,6 +113,7 @@ module type trmodel = {
 
   -- ctp function
   val ctp_tau [ns] : transition[ns]-> [ns][ns]t -> [ns][ns]t
+  val ccp_tau [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> [ns][nd]t -> [ns]t -> [ns][nd]t
 
 }
 
@@ -516,4 +525,7 @@ module trmodel (R:real) : trmodel with t = R.t = {
   ----- Choice transition probability function
   def ctp_tau [ns] (transition:transition[ns]) (delta:[ns][ns]t) : [ns][ns]t =
     age_transition_dmsmm_notrade delta transition
+
+  def ccp_tau [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (v:[ns][nd]t) (ev:[ns]t) : [ns][nd]t = 
+    map2 (\r x -> map (R.exp <-< (R./ mp.sigma) <-< (R.- x)) r) v ev
 }

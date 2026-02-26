@@ -95,11 +95,7 @@ for t=1:mp.ntypes;
     q_tau{t}=ergodic(ctp_tau{t}); 
 
 end
-disp()
-disp(delta_tau{t})
-disp(ctp_tau{1})
 disp(q_tau{1})
-disp(q_tau{2})
 
 % solve for equilibrium price
 % [sol]=equilibrium.solve(mp, s); % solve model in baseline
