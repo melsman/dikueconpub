@@ -103,6 +103,9 @@ module type trmodel = {
   val ev_scrap [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> prices[c][Ax]
                                     -> consumertype -> state -> t
 
+  -- ctp function
+  val ctp_tau [ns] : transition[ns]-> [ns][ns]t -> [ns][ns]t
+
 }
 
 module trmodel (R:real) : trmodel with t = R.t = {
@@ -479,16 +482,17 @@ module trmodel (R:real) : trmodel with t = R.t = {
 
   def trade_transition [n][c][Ax][ns][nd]
                        (_mp:mp[n][c][Ax][ns][nd])
-                       (ccp: [ns][nd]t) : [ns][ns]t =
+                       (ccp: [ns][nd]t) : ([ns][ns]t, [ns]t, [ns][ns]t) =
     let deltaKdiag : [ns]t = map (\x -> x[0]) ccp -- keep: column 0
     let deltaT = map (\(x:[nd]t) ->
 		        let vs : [c][Ax]t = unflatten (x[1:ns] :> [c*Ax]t)
 		        let vs = map (rotate 1) vs |> flatten
 			in (vs ++ [x[nd-1]]) :> [ns]t
 		     ) ccp
-    in mapi (\i -> mapi (\j e -> if i == j then e R.+ deltaKdiag[i]
+    let delta = mapi (\i -> mapi (\j e -> if i == j then e R.+ deltaKdiag[i]
 				 else e)
 	    ) deltaT
+    in (delta, deltaKdiag, deltaT)
 
   def bellmanJ [n][c][Ax][ns][nd]
                (mp:mp[n][c][Ax][ns][nd])
@@ -499,7 +503,7 @@ module trmodel (R:real) : trmodel with t = R.t = {
     let ccp : [ns][nd]t =
       map2 (\r x -> map (R.exp <-< (R./ mp.sigma) <-< (R.- x)) r) v ev1
     let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
-    let delta : [ns][ns]t = trade_transition mp ccp
+    let (delta,_,_) : ([ns][ns]t, [ns]t, [ns][ns]t) = trade_transition mp ccp
     let dev = scaled_transition mp.bet F |> age_transition_dmsmm_notrade delta
     in (ev1,dev)
 
@@ -508,4 +512,8 @@ module trmodel (R:real) : trmodel with t = R.t = {
 
   def transition_trade [ns] (tr:transition[ns]) : [ns][ns]t =     -- for testing
     sp.dense (tr.trade)
+
+  ----- Choice transition probability function
+  def ctp_tau [ns] (transition:transition[ns]) (delta:[ns][ns]t) : [ns][ns]t =
+    age_transition_dmsmm_notrade delta transition
 }
