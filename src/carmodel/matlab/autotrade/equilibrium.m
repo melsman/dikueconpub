@@ -388,7 +388,7 @@ methods (Static)
     marketshares=nan(mp.ntypes,mp.ncartypes+1);
     for tau=1:mp.ntypes;
       for j=1:mp.ncartypes;
-        marketshares(tau,j)=nansum(h_tau{tau}(s.ipt.car{j}));
+        marketshares(tau,j)=sum(h_tau{tau}(s.ipt.car{j}), 'omitnan');
       end
       marketshares(tau,mp.ncartypes+1)=h_tau{tau}(s.ipt.nocar,1);
     end
