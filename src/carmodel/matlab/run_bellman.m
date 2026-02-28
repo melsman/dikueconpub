@@ -10,7 +10,7 @@ clc
 mp = setparams.default(); % default parameters used for illustration
 
 % set number of types
-mp.ntypes = 2000;
+mp.ntypes = 2;
 mp.ncartypes=3;
 
 % update model parameter dependencies
@@ -52,7 +52,11 @@ end
 
 
 % evaluate excess demand for a given price vector, p
-% [ed, ded, sol]=equilibrium.edf(mp, s, p);
+[ed, ded, sol]=equilibrium.edf(mp, s, p);
 
+myoptions = optimoptions('fsolve','Jacobian','on','TolFun',1e-12,'TolX',1e-10, 'Display','iter');
+
+[p,ed] = fsolve(@(p) equilibrium.edf(mp, s, p),p, myoptions);
+disp(ed);
 % solve for equilibrium price
 % [sol]=equilibrium.solve(mp, s); % solve model in baseline

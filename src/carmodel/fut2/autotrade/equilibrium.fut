@@ -2,21 +2,7 @@ import "trmodel"
 import "../lib/github.com/diku-dk/linalg/lup"
 import "../lib/github.com/diku-dk/linalg/dpsolve"
 
-module type equilibrium = {
-
-    type t
-    type mp [n][c][Ax][ns][nd]
-    type~ transition[ns]
-
-    type~ sol[n][ns][nd][np]
-
-    val ergodic [ns] : [ns][ns]t ->[ns]t
-
-    --- test functions
-    val edf_q_tau [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> [Ax][c]t -> i64 -> i64 -> [ns]t
-}
-
-module equilibrium (R:real) (trm:trmodel with t = R.t) : equilibrium with t = R.t = {
+module equilibrium (R:real) (trm:trmodel with t = R.t) = {
 
     module lup = mk_lup R
     module dps = mk_dpsolve_dense R
@@ -68,7 +54,32 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) : equilibrium with t = R.
     --    let q_tau : [ns][t] = ergodic ctp
     --    let 
 
-    ---- test function
+    ---- test functions
+     def utils_single [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (tau:i64) (sa_max:i64) : [ns][nd]t =
+        let utils : trm.utility [ns][nd] = trm.utility mp p tau
+        in utils
+
+    def solve_single [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (tau:i64) (sa_max:i64) : [ns]t =
+        let utils : trm.utility [ns][nd] = trm.utility mp p tau
+        let tr = trm.age_transition mp
+        let ev0 = trm.ev0 mp
+        let f = trm.bellmanJ mp utils tr
+        let param = dps.default with sa_max=sa_max
+        let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.f32 0)
+        in ev
+
+    def edf_q_delta [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (tau:i64) (sa_max:i64) : [ns][ns]t  =
+        let utils : trm.utility [ns][nd] = trm.utility mp p tau
+        let tr = trm.age_transition mp
+        let ev0 = trm.ev0 mp
+        let f = trm.bellmanJ mp utils tr
+        let param = dps.default with sa_max=sa_max
+        let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.f32 0)
+        let (_, v) = trm.bellman0 mp utils tr ev
+        let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+        let (delta, _, _) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
+        in delta
+    
     def edf_q_tau [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (tau:i64) (sa_max:i64) : [ns]t  =
         let utils : trm.utility [ns][nd] = trm.utility mp p tau
         let tr = trm.age_transition mp
@@ -82,5 +93,4 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) : equilibrium with t = R.
         let ctp : [ns][ns]t = trm.ctp_tau tr delta
         let q_tau : [ns]t = ergodic ctp
         in q_tau
-
 }
