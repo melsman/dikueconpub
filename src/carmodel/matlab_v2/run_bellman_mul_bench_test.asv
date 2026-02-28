@@ -77,7 +77,7 @@ fid2 = fopen('..\fut\matlab_res.dat', 'w');
 fclose(fid2);
 
 for c = 5:5:35
-    [ev, t] = man_time_bellman(n,c,abar,"sa",false, false, true);
+    [ev, t] = man_time_bellman(n,c,abar,"sa",false, , true);
     write_benchmark('..\fut\matlab.dat', n, c, abar, 'B', t);
     write_ev_max('..\fut\matlab_res.dat', n, c, abar, 'B', ev);
 end
@@ -104,14 +104,14 @@ fclose(fid);
 fid2 = fopen('..\fut\matlab2_res.dat', 'w');
 fclose(fid2);
 for n = 2:2:10
-    [ev, t] = man_time_bellman(n,c,abar,"sa",false, false, true);
+    [ev, t] = man_time_bellman(n,c,abar,"poly",false, false, true);
     write_benchmark('..\fut\matlab2.dat', n, c, abar, 'B', t);
     write_ev_max('..\fut\matlab2_res.dat', n, c, abar, 'B', ev);
 end
 
 ev = run_bellman_n(4, 10, 15, "poly", false, true);
 disp(max(max(ev)));
-ev = run_bellman_n(2, 35, 25, "sa", false, true);
+ev = run_bellman_n(2, 10, 20, "sa", false, true);
 disp(max(ev));
 ev2 = run_bellman_n(2, 2, 2, "poly", false);
 disp(ev2(:,1));

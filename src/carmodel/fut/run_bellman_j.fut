@@ -88,6 +88,14 @@ entry mainn_u_0 (n:i64) (c:i64) : [n][c]R.t =
 		(\i j -> R.(i64 5 + i64 2 * (i64 i + i64 j) / (i64 n + i64 c)))
   in u_0
 
+entry mainn_simple (n:i64) (c:i64) (Ax:i64) (sa_max:i64) : ([n]R.t,bool,i64,i64,[n]i64) =
+  #[unsafe]
+  let sa_max = sa_max
+  let pnews : [c]R.t = replicate c 100
+  let mp = r.trm.mk n c Ax
+  let mp = r.trm.set_newprices mp pnews
+  in r.runn mp sa_max
+
 entry test = r.test
 
 entry tuneme (n:i64) : R.t =

@@ -50,7 +50,6 @@ for t=1:mp.ntypes;
 
 end
 
-
 % evaluate excess demand for a given price vector, p
 [ed, ded, sol]=equilibrium.edf(mp, s, p);
 
