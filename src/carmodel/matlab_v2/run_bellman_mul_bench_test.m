@@ -107,6 +107,8 @@ for n = 2:2:10
     write_ev_max('..\fut\matlab2_res.dat', n, c, abar, 'B', ev);
 end
 
+ev = run_bellman_n(4, 10, 15, "poly", true, true);
+disp(max(ev));
 
 % evaluate excess demand for a given price vector, p
 % [ed, ded, sol]=equilibrium.edf(mp, s, p);
