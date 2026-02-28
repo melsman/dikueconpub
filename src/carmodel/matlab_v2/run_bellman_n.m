@@ -31,6 +31,7 @@ function [ev, ev_sa, ev_poly]=run_bellman_n(n, c, abar, type, pri, futhark_u0)
     mp0.ncartypes=c;
     mp0.abar=abar;
     mp0.ntypes=n;
+    mp0.pnew=100;
     
     % populate mp with remaining fields and update model parameter dependencies
     mp = trmodel.setparams(mp0);
