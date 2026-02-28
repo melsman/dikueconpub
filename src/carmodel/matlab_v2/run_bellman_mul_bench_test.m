@@ -6,12 +6,13 @@ addpath('autotrade');
 clear
 clc
 
-function [ev,t] = man_time_bellman(n,c,abar,type,pri, fipri)
+function [ev,t] = man_time_bellman(n,c,abar,type,pri, fipri, futhark_u0)
     if nargin < 4, type = "all"; end
     if nargin < 5, pri  = false; end
+    if nargin < 6, futhark_u0 = true; end
     tstart = tic;
 
-    ev = run_bellman_n(n,c,abar,type,pri);
+    ev = run_bellman_n(n,c,abar,type,pri, futhark_u0);
     
     t = toc(tstart);
     if fipri
@@ -50,15 +51,33 @@ function write_benchmark(filename, n, c, abar, method, runtime)
     fclose(fid);
 end
 
+function write_ev_max(filename, n, c, abar, method, ev)
+    % Open file in append mode
+    fid = fopen(filename, 'a');
+
+    if fid == -1
+        error('Could not open file.');
+    end
+    m = max(ev, [], 1);
+    fprintf(fid, '# n=%d c=%d abar=%d method=%s\n', n, c, abar, char(method));
+    fprintf(fid, '%.6f\n', m);
+    fprintf(fid, '\n');
+
+    fclose(fid);
+end
+
 n = 4;
 abar = 20;
 
 fid = fopen('..\fut\matlab.dat', 'w');
 fclose(fid);
+fid2 = fopen('..\fut\matlab_res.dat', 'w');
+fclose(fid2);
 
 for c = 5:5:35
-    [~, t] = man_time_bellman(n,c,abar,"sa",false, false);
+    [ev, t] = man_time_bellman(n,c,abar,"sa",false, false, true);
     write_benchmark('..\fut\matlab.dat', n, c, abar, 'B', t);
+    write_ev_max('..\fut\matlab_res.dat', n, c, abar, 'B', ev);
 end
 
 n = 4;
@@ -66,10 +85,13 @@ abar = 25;
 
 fid = fopen('..\fut\matlabj.dat', 'w');
 fclose(fid);
+fid2 = fopen('..\fut\matlabj_res.dat', 'w');
+fclose(fid2);
 
 for c = 5:5:35
-    [~, t] = man_time_bellman(n,c,abar,"poly",false, false);
+    [ev, t] = man_time_bellman(n,c,abar,"poly",false, false, true);
     write_benchmark('..\fut\matlabj.dat', n, c, abar, 'BJ', t);
+    write_ev_max('..\fut\matlabj_res.dat', n, c, abar, 'B', ev);
 end
 
 abar = 25;
@@ -77,9 +99,12 @@ c = 35;
 
 fid = fopen('..\fut\matlab2.dat', 'w');
 fclose(fid);
+fid2 = fopen('..\fut\matlab2_res.dat', 'w');
+fclose(fid2);
 for n = 2:2:10
-    [~, t] = man_time_bellman(n,c,abar,"poly",false, false);
+    [ev, t] = man_time_bellman(n,c,abar,"poly",false, false, true);
     write_benchmark('..\fut\matlab2.dat', n, c, abar, 'B', t);
+    write_ev_max('..\fut\matlab2_res.dat', n, c, abar, 'B', ev);
 end
 
 

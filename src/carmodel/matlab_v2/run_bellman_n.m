@@ -8,7 +8,7 @@
 % clc
 
 % read default parameters
-function [ev_sa, ev_poly]=run_bellman_n(n, c, abar, type, pri)
+function [ev, ev_sa, ev_poly]=run_bellman_n(n, c, abar, type, pri, futhark_u0)
 
     
     if nargin<4
@@ -21,6 +21,11 @@ function [ev_sa, ev_poly]=run_bellman_n(n, c, abar, type, pri)
     mp0=trmodel.default_params;
 
     mp0.tw =  ones(n,1)/n;
+    if nargin==6 & futhark_u0==true
+        [I, J] = ndgrid(0:n-1, 0:c-1);
+        u_0 = 5 + 2 * (I + J) / (n + c);
+        mp0.u0 = u_0(:);
+    end
     
     % Parameter adjustments (relative to defaults)
     mp0.ncartypes=c;
@@ -48,6 +53,8 @@ function [ev_sa, ev_poly]=run_bellman_n(n, c, abar, type, pri)
     ev_sa   = zeros(s.ns, mp.ntypes);
     ev_poly = zeros(s.ns, mp.ntypes);
 
+    ev = zeros(s.ns, mp.ntypes);
+
     for t  = 1:mp.ntypes
        if pri
         fprintf('Solving model for sonsumer type, tau=%d\n ', t);
@@ -61,9 +68,11 @@ function [ev_sa, ev_poly]=run_bellman_n(n, c, abar, type, pri)
         
         if type~="poly"
             ev_sa(:,t)= dpsolver.sa(bellman, ev0, ap);
+            ev(:,t) = ev_sa(:,t);
         end
         if type~="sa"
             ev_poly(:,t)= dpsolver.poly(bellman, ev0, ap, mp.bet);
+            ev(:,t) = ev_poly(:,t);
         end
     end
 end
