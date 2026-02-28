@@ -24,7 +24,7 @@ function [ev, ev_sa, ev_poly]=run_bellman_n(n, c, abar, type, pri, futhark_u0)
     if nargin==6 & futhark_u0==true
         [I, J] = ndgrid(0:n-1, 0:c-1);
         u_0 = 5 + 2 * (I + J) / (n + c);
-        mp0.u_0 = u_0(:);
+        mp0.u_0 = u_0;
     end
     
     % Parameter adjustments (relative to defaults)

@@ -83,12 +83,24 @@ entry mainn (n:i64) (c:i64) (Ax:i64) : ([n]R.t,bool,i64,i64,[n]i64) =
   let mp = r.trm.set_newprices mp pnews
   in r.runn mp sa_max
 
+entry mainn_u_0 (n:i64) (c:i64) : [n][c]R.t = 
+  let u_0 = tabulate_2d n c
+		(\i j -> R.(i64 5 + i64 2 * (i64 i + i64 j) / (i64 n + i64 c)))
+  in u_0
+
 entry test = r.test
 
 entry tuneme (n:i64) : R.t =
   let c = 10
   let Ax = 15
   in mainn n c Ax |> (.0) |> reduce R.max (R.i64 0)
+
+-- ==
+-- entry: mainn_u_0
+-- input { 3i64 3i64 }
+-- output { [[5.0f64, 5.33f64, 5.66f64],
+--           [5.33f64, 5.66f64, 6.00f64],
+--           [5.66f64, 6.00f64, 6.33f64]]}
 
 -- ==
 -- entry: tuneme
