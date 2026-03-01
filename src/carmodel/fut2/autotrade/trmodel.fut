@@ -61,6 +61,11 @@ module type trmodel = {
   val acc_prob_mat [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> (acc_prob_mat[ns], acc_prob[ns])
   val dense_acc_prob_mat [ns] : acc_prob_mat[ns] -> [ns][ns]t -- for testing purposes
 
+
+  -- ccp_scrap
+  val ccp_scrap_tau   [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> prices[c][Ax]
+                                          -> consumertype -> [ns]t
+
   -- utilities of transitions
   type utility [ns][nd] = [ns][nd]t
   val utility        [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> prices[c][Ax]
@@ -394,6 +399,23 @@ module trmodel (R:real) : trmodel with t = R.t = {
        ) ++ [util mp p tau #NoCar #Purge]
       ) :> [ns]t
     in transpose (([utils_keep] ++ utils_car ++ [utils_purge]) :> [nd][ns]t)
+
+
+  --------- Scrap choice probability matrix - probability of scrapping each type of car conditional on selling it
+  def ccp_scrap_single [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:prices[c][Ax])
+                              (tau:consumertype) (car:i64) (age:i64) : t =
+      let ev_scrap_car = ev_scrap mp p tau (#Car{cartype=car,age=age+1})
+      in if (age==Ax-1) then R.i64 1 else R.(i64 1-exp(i64 0-(ev_scrap_car/mp.sigma_s)))
+
+  def ccp_scrap_tau [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:prices[c][Ax])
+                                 (tau:consumertype) : [ns]t =
+    let ccp_scraps_car =
+      (flatten (
+         tabulate_2d c Ax
+           (\car age -> ccp_scrap_single mp p tau car age)
+       ) )
+    in (ccp_scraps_car++[R.i64 0]) :> [ns]t
+    
 
   --------- Age transition matrices
 

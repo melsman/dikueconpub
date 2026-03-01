@@ -285,3 +285,19 @@ entry test_bellmanN_transcost [c] (n:i64) (newprices:[c]f64) (Ax:i64) (N:i64) (t
   let util : trm.utility [ns][nd] = trm.utility mp p tau
   let tr = trm.age_transition mp
   in loop ev = trm.ev0 mp for _i < N do trm.bellman mp util tr ev
+
+-- ==
+-- entry: test_ccp_scrap_tau
+-- input { 2i64 2i64 2i64 0.85f64 }
+-- output { [0.0f64, 1.0f64, 0.0f64, 1.0f64, 0.0f64] }
+-- input { 2i64 1i64 5i64 0.5f64 }
+-- output { [0.001f64, 0.0082f64, 0.0911f64, 0.2592f64, 1.0f64, 0.0f64] }
+
+entry test_ccp_scrap_tau (n:i64) (c:i64) (Ax:i64) (price_mul:f64) : ?[ns].[ns]f64 =
+  let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
+  let pnews : [c]f64 = replicate c 100.0f64
+  let mp = trm.mk n c Ax
+  let mp = trm.set_newprices mp pnews
+  let p = trm.simple_prices mp (price_mul)
+  let tau = 1
+  in trm.ccp_scrap_tau mp p 1

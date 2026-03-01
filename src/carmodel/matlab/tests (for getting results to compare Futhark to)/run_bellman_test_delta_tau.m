@@ -55,4 +55,4 @@ ev_poly=nan(s.ns, mp.ntypes); 	% expected value function solved by poly algorith
 
 % solve for equilibrium price
 [sol]=equilibrium.solve_once(mp, s, p);
-disp(sol.q_tau{1});
+disp(sol.ccp_scrap_tau{1});
