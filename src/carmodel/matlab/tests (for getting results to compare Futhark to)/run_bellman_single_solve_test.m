@@ -74,7 +74,7 @@ for t=1:mp.ntypes;
 
 end
 
-disp(ev_sa)
+disp(ev_poly);
 
 
 

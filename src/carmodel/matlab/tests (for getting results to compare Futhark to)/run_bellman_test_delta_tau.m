@@ -29,7 +29,6 @@ mp.fixprices = true;
 
 % update model parameter dependencies
 mp = trmodel.update_mp(mp);
-
 % model indexing
 s = trmodel.index(mp);
 
@@ -56,4 +55,4 @@ ev_poly=nan(s.ns, mp.ntypes); 	% expected value function solved by poly algorith
 
 % solve for equilibrium price
 [sol]=equilibrium.solve_once(mp, s, p);
-disp(sol.delta_tau{1});
+disp(sol.q_tau{1});

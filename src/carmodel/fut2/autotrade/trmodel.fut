@@ -527,5 +527,7 @@ module trmodel (R:real) : trmodel with t = R.t = {
     age_transition_dmsmm_notrade delta transition
 
   def ccp_tau [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (v:[ns][nd]t) (ev:[ns]t) : [ns][nd]t = 
-    map2 (\r x -> map (R.exp <-< (R./ mp.sigma) <-< (R.- x)) r) v ev
+    let ccp = map2 (\r x -> map (R.exp <-< (R./ mp.sigma) <-< (R.- x)) r) v ev
+    let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+    in ccp
 }

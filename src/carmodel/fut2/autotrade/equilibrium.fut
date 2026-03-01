@@ -68,6 +68,18 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.f32 0)
         in ev
 
+    def edf_ccp_tau [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (tau:i64) (sa_max:i64) : [ns][nd]t  =
+        let utils : trm.utility [ns][nd] = trm.utility mp p tau
+        let tr = trm.age_transition mp
+        let ev0 = trm.ev0 mp
+        let f = trm.bellmanJ mp utils tr
+        let param = dps.default with sa_max=sa_max
+        let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.f32 0)
+        let (_, v) = trm.bellman0 mp utils tr ev
+        let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+        let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+        in ccp
+
     def edf_q_delta [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (tau:i64) (sa_max:i64) : [ns][ns]t  =
         let utils : trm.utility [ns][nd] = trm.utility mp p tau
         let tr = trm.age_transition mp
@@ -77,6 +89,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.f32 0)
         let (_, v) = trm.bellman0 mp utils tr ev
         let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+        let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
         let (delta, _, _) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
         in delta
     
@@ -89,6 +102,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.f32 0)
         let (_, v) = trm.bellman0 mp utils tr ev
         let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+        let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
         let (delta, _, _) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
         let ctp : [ns][ns]t = trm.ctp_tau tr delta
         let q_tau : [ns]t = ergodic ctp
