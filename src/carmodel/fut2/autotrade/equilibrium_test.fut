@@ -26,12 +26,11 @@ entry test_ergodic [ns] (ccp:[ns][ns]f64) : [ns]f64 =
 --           [f64.nan, -4.0000f64, -3.0000f64, -4.0000f64, -3.0000f64, 0.0000f64]]}
 
 entry test_utils_single  (n:i64) (c:i64) (Ax:i64) : ?[ns][nd].[ns][nd]f64 =
-    let sa_max = 3
     let pnews : [c]f64 = replicate c 100.0f64
     let mp = trm.mk n c Ax
     let mp = trm.set_newprices mp pnews
     let p = trm.simple_prices mp (f64.f32 0.85)
-    in eqb.utils_single mp p 1 sa_max
+    in eqb.utils_single mp p 1
 
 -- ==
 -- entry: test_solve_single 
@@ -95,3 +94,16 @@ entry test_edf_q_tau (n:i64) (c:i64) (Ax:i64) : ?[ns].[ns]f64 =
     let mp = trm.set_newprices mp pnews
     let p = trm.simple_prices mp (f64.f32 0.85)
     in eqb.edf_q_tau mp p 1 sa_max
+
+-- ==
+-- entry: test_edf_tau_test
+-- input {2i64 2i64 2i64 }
+-- output { [-0.4944f64, -0.4944f64] }
+
+entry test_edf_tau_test (n:i64) (c:i64) (Ax:i64) : ?[np].[np]f64 =
+    let sa_max = 3
+    let pnews : [c]f64 = replicate c 100.0f64
+    let mp = trm.mk n c Ax
+    let mp = trm.set_newprices mp pnews
+    let p = trm.simple_prices mp (f64.f32 0.85)
+    in eqb.edf_tau_test mp p 1 sa_max

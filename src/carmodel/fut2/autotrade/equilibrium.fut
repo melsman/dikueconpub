@@ -36,6 +36,26 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let res' = lup.ols ap ed0
         in map (\i->res'[i]) (iota ns)
 
+    def ed_tau [n][c][Ax][ns][nd] (q_tau:[ns]t) (deltaK_diag:[ns]t) (deltaT_tau:[ns][ns]t) (_:mp[n][c][Ax][ns][nd]) (ccp_scrap_tau:[ns]t) : ?[np].[np]t = 
+        let deltaT_trans = transpose deltaT_tau
+        let demand = flatten (
+            tabulate_2d c (Ax-1) 
+                (\ct a-> let ind = ct*Ax+a
+                 in map2 (\x y->R.(x*y)) deltaT_trans[ind] q_tau|>reduce (R.+) (R.i64 0)
+                )
+            )
+        let sell_p = map (\x->R.(i64 1-x)) deltaK_diag
+        let no_scrap = map (\x->R.(i64 1-x)) ccp_scrap_tau
+        let supply = flatten (
+            tabulate_2d c (Ax-1)
+            (\ct a->let ind = ct*Ax+a
+             in R.(sell_p[ind]*no_scrap[ind]*q_tau[ind])
+            )
+        )
+        in map2 (\d s->R.(d-s)) demand supply
+
+
+
     ------- edf functions
     --- this one is mostly for testing
     --- a bit annoying that I have to calculate ccp and delta again outside bellman, but it seems to be necessary since
@@ -55,7 +75,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
     --    let 
 
     ---- test functions
-     def utils_single [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (tau:i64) (sa_max:i64) : [ns][nd]t =
+     def utils_single [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (tau:i64) : [ns][nd]t =
         let utils : trm.utility [ns][nd] = trm.utility mp p tau
         in utils
 
@@ -107,4 +127,20 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let ctp : [ns][ns]t = trm.ctp_tau tr delta
         let q_tau : [ns]t = ergodic ctp
         in q_tau
+
+    def edf_tau_test [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (tau:i64) (sa_max:i64) : ?[np].[np]t  =
+        let utils : trm.utility [ns][nd] = trm.utility mp p tau
+        let ccp_scrap_tau = trm.ccp_scrap_tau mp p tau
+        let tr = trm.age_transition mp
+        let ev0 = trm.ev0 mp
+        let f = trm.bellmanJ mp utils tr
+        let param = dps.default with sa_max=sa_max
+        let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.f32 0)
+        let (_, v) = trm.bellman0 mp utils tr ev
+        let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+        let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+        let (delta, deltaK_diag, deltaT) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
+        let ctp : [ns][ns]t = trm.ctp_tau tr delta
+        let q_tau : [ns]t = ergodic ctp
+        in ed_tau q_tau deltaK_diag deltaT mp ccp_scrap_tau
 }
