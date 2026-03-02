@@ -48,6 +48,9 @@ module type trmodel = {
 
   type consumertype = i64
 
+  -- model getters
+  val get_tw [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> [n]t
+
   -- car prices (for new and old cars)
   type prices [c][Ax] = [Ax][c]t   -- c: ncartypes, Ax: maxage
 
@@ -170,6 +173,11 @@ module trmodel (R:real) : trmodel with t = R.t = {
      acc_even        = replicate c (R.i32 0),
      transcost       = R.i64 0
      }
+
+  -- some getters
+
+  def get_tw [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) : [n]t =
+    mp.tw
 
   -- some utilities
   def mapi 'a 'b [n] (f: i64 -> a -> b) (xs:[n]a) : [n]b =

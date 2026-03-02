@@ -143,4 +143,31 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let ctp : [ns][ns]t = trm.ctp_tau tr delta
         let q_tau : [ns]t = ergodic ctp
         in ed_tau q_tau deltaK_diag deltaT mp ccp_scrap_tau
+
+    def edf_test [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (sa_max:i64) : ?[np].[np]t  =
+        let comp (tau:i64) : [ns]t =
+            let utils : trm.utility [ns][nd] = trm.utility mp p tau
+            let tr = trm.age_transition mp
+            let ev0 = trm.ev0 mp
+            let f = trm.bellmanJ mp utils tr
+            let param = dps.default with sa_max=sa_max
+            let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.f32 0)
+            in ev
+        let evs : [n][ns]t =
+            #[sequential_outer] map comp (iota n)
+        let edf (ev:[ns]t) (tau:i64) =
+            let utils : trm.utility [ns][nd] = trm.utility mp p tau
+            let tr = trm.age_transition mp
+            let ccp_scrap_tau = trm.ccp_scrap_tau mp p tau
+            let (_, v) = trm.bellman0 mp utils tr ev
+            let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+            let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+            let (delta, deltaK_diag, deltaT) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
+            let ctp : [ns][ns]t = trm.ctp_tau tr delta
+            let q_tau : [ns]t = ergodic ctp
+            in ed_tau q_tau deltaK_diag deltaT mp ccp_scrap_tau
+        let edfs = map2 edf evs (iota n)
+        let tw = trm.get_tw mp
+        let edfs_scaled = map2 (\x w-> map (\y->R.(y*w)) x) edfs tw
+        in edfs_scaled|>reduce (map2 (\x y->R.(x+y))) (replicate (c*(Ax-1)) (R.i64 0))
 }
