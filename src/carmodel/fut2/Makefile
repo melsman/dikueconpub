@@ -92,7 +92,7 @@ data1.dat: $(DATA1_FILES)
 plot1.pdf: plot1-noo.gp data1.dat matlab.dat
 	gnuplot -e "load \"$<\""
 
-DATA1_J=4-5-25 4-15-25 4-20-25 4-25-25 4-30-25 4-35-25
+DATA1_J=4-5-25 4-15-25 4-20-25 4-25-25 4-30-25 4-35-25 4-40-25 4-45-25 4-50-25 4-55-25 4-60-25
 
 DATA1_J_C_FILES=$(DATA1_J:%=run_bellman_j-%-C.tmavg)
 DATA1_J_M_FILES=$(DATA1_J:%=run_bellman_j-%-M.tmavg)

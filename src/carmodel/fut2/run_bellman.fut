@@ -61,7 +61,7 @@ entry main (c:i64) (Ax:i64) (sa_max:i64) : []R.t =
 
 entry mainn (n:i64) (c:i64) (Ax:i64) : ([n]R.t,bool,i64) =
   #[unsafe]
-  let sa_max = 200
+  let sa_max = 20
   let pnews : [c]R.t = replicate c 100
   let u_0 = tabulate_2d n c
 		(\i j -> R.(i64 5 + i64 2 * (i64 i + i64 j) / (i64 n + i64 c)))

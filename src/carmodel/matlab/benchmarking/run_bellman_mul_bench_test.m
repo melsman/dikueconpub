@@ -1,7 +1,7 @@
 % This solves the bellman equation for a given set of prices and parameters
 
-addpath('matlabinclude');
-addpath('autotrade');
+addpath('..\matlabinclude');
+addpath('..\autotrade');
 
 clear
 clc
@@ -12,7 +12,7 @@ function [ev,t] = man_time_bellman(n,c,abar,type,pri, fipri, futhark_u0)
     if nargin < 6, futhark_u0 = true; end
     tstart = tic;
 
-    ev = run_bellman_n(n,c,abar,type,pri, futhark_u0);
+    ev = run_bellman_mul(n,c,abar,type,pri, futhark_u0);
     
     t = toc(tstart);
     if fipri
@@ -31,7 +31,7 @@ function [ev, t] = time_bellman(n,c,abar,type,pri, fipri, futhark_u0)
     f = @() run_bellman_n(n,c,abar,type,pri);
 
     t = timeit(f);
-    ev = run_bellman_n(n,c,abar,type,pri, futhark_u0);
+    ev = run_bellman_mul(n,c,abar,type,pri, futhark_u0);
     
     if fipri
         fprintf('Average execution time: %.4f seconds\n', t);
@@ -72,49 +72,49 @@ end
 n = 4;
 abar = 20;
 
-fid = fopen('..\fut\matlab.dat', 'w');
+fid = fopen('..\..\fut2\matlab.dat', 'w');
 fclose(fid);
-fid2 = fopen('..\fut\matlab_res.dat', 'w');
+fid2 = fopen('..\..\fut2\matlab_res.dat', 'w');
 fclose(fid2);
 
 for c = 5:5:35
     [ev, t] = man_time_bellman(n,c,abar,"sa",false, false, true);
-    write_benchmark('..\fut\matlab.dat', n, c, abar, 'B', t);
-    write_ev_max('..\fut\matlab_res.dat', n, c, abar, 'B', ev);
+    write_benchmark('..\..\fut2\matlab.dat', n, c, abar, 'B', t);
+    write_ev_max('..\..\fut2\matlab_res.dat', n, c, abar, 'B', ev);
 end
 
 n = 4;
 abar = 25;
 
-fid = fopen('..\fut\matlabj.dat', 'w');
+fid = fopen('..\..\fut2\matlabj.dat', 'w');
 fclose(fid);
-fid2 = fopen('..\fut\matlabj_res.dat', 'w');
+fid2 = fopen('..\..\fut2\matlabj_res.dat', 'w');
 fclose(fid2);
 
-for c = 5:5:55
+for c = 5:5:60
     [ev, t] = man_time_bellman(n,c,abar,"poly",false, false, true);
-    write_benchmark('..\fut\matlabj.dat', n, c, abar, 'BJ', t);
-    write_ev_max('..\fut\matlabj_res.dat', n, c, abar, 'B', ev);
+    write_benchmark('..\..\fut2\matlabj.dat', n, c, abar, 'BJ', t);
+    write_ev_max('..\..\fut2\matlabj_res.dat', n, c, abar, 'B', ev);
 end
 
 abar = 25;
 c = 35;
 
-fid = fopen('..\fut\matlab2.dat', 'w');
+fid = fopen('..\..\fut2\matlab2.dat', 'w');
 fclose(fid);
-fid2 = fopen('..\fut\matlab2_res.dat', 'w');
+fid2 = fopen('..\..\fut2\matlab2_res.dat', 'w');
 fclose(fid2);
 for n = 2:2:10
     [ev, t] = man_time_bellman(n,c,abar,"sa",false, false, true);
-    write_benchmark('..\fut\matlab2.dat', n, c, abar, 'B', t);
-    write_ev_max('..\fut\matlab2_res.dat', n, c, abar, 'B', ev);
+    write_benchmark('..\..\fut2\matlab2.dat', n, c, abar, 'B', t);
+    write_ev_max('..\..\fut2\matlab2_res.dat', n, c, abar, 'B', ev);
 end
 
-ev = run_bellman_n(4, 10, 15, "poly", false, true);
+ev = run_bellman_mul(4, 10, 15, "poly", false, true);
 disp(max(max(ev)));
-ev = run_bellman_n(2, 35, 25, "sa", false, true);
+ev = run_bellman_mul(2, 35, 25, "sa", false, true);
 disp(max(ev));
-ev2 = run_bellman_n(2, 2, 2, "poly", false);
+ev2 = run_bellman_mul(2, 2, 2, "poly", false);
 disp(ev2(:,1));
 
 % evaluate excess demand for a given price vector, p

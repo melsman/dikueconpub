@@ -10,28 +10,34 @@ clc
 mp = setparams.default(); % default parameters used for illustration
 
 % set number of types
-mp.ntypes = 2;
-mp.ncartypes=2;
-mp.abar_j0 = {2,2};
-mp.pnew_notax = {100,100};
-mp.acc_0 = {-10,-10};
-mp.u_0 = {6, 6};
-mp.u_a = {-0.5, -0.5};
-mp.u_a_sq = {0.0, 0.0};
+mp.ntypes = 4;
+mp.ncartypes=5;
+mp.abar_j0 = {20};
+mp.pnew_notax = {100};
+mp.acc_0 = {-10};
+mp.u_0 = {6};
+mp.u_a = {-0.5};
+mp.u_a_sq = {0.0};
 mp.transcost = 0;
 mp.vat = 0;
 mp.cartax_lo =  0;   % registration tax (below kink, K_cartax_hi)
 mp.cartax_hi =  0;   % registration tax (above kink, K_cartax_hi)
 mp.tax_fuel  =  0;   % proportional fuel tax 
 mp.K_cartax_hi = 0;       % mp.K_cartax_hi before mp.cartax_hi tax kicks in
-mp.mum = {0.1, 0.1};
+mp.mum = {0.1};
+
+n = mp.ntypes
+c = mp.ncartypes
+[I, J] = ndgrid(0:n-1, 0:c-1);
+u_0 = 5 + 2 * (I + J) / (n + c);
+mp.u_0 = num2cell(u_0);
 
 % update model parameter dependencies
 mp = trmodel.update_mp(mp);
 
 % model indexing
 s = trmodel.index(mp);
-disp(mp.acc_0);
+disp(mp.u_0);
 
 % initialize prices where to solve bellman
 % p = equilibrium.price_init(mp,s);
@@ -44,7 +50,7 @@ function [sp] = simple_prices(mp, r,s)
     end
 end
 p = simple_prices(mp,0.85,s);
-disp(p);
+%disp(p);
 
 ev0=zeros(s.ns, mp.ntypes); % initial guess on expected value function
 
@@ -77,7 +83,7 @@ for t=1:mp.ntypes;
 
 end
 
-disp(ev_sa)
+disp(max(ev_sa))
 
 % evaluate excess demand for a given price vector, p
 % [ed, ded, sol]=equilibrium.edf(mp, s, p);
