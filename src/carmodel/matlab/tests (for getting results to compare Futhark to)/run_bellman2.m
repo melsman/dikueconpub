@@ -69,7 +69,7 @@ for t=1:mp.ntypes;
     bellman=@(ev) trmodel.bellman(mp, s, util(:,:,t), F, ev);
     ev_t = ev0(:, t);
 
-    for i=1:1;
+    for i=1:2;
        ev_t = bellman (ev_t);    
     end
 

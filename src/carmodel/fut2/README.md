@@ -16,6 +16,8 @@ native `Matlab` version and the `c` Futhark backend:
 
 (plot made using `make plot1.pdf`)
 
+Note that in order to get benchmarks from the `Matlab` version, you can run `run_bellman_mul_bench_test.m` in `matlab_v2`.
+
 ## Newton's Method
 
 The [`dpsolver`](util/dpsolver.fut) library also allows for using

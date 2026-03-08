@@ -19,6 +19,7 @@ function [ev, ev_sa, ev_poly]=run_bellman_mul(n, c, abar, type, pri, futhark_u0)
     mp.abar_j0 ={abar};
     mp.ntypes=n;
     mp.pnew={100};
+    mp.pnew_notax={100};
     mp.acc_0 = {-10};
     mp.u_a = {-0.5};
     mp.u_a_sq = {0.0};

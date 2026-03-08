@@ -116,6 +116,8 @@ ev = run_bellman_mul(2, 35, 25, "sa", false, true);
 disp(max(ev));
 ev2 = run_bellman_mul(2, 2, 2, "poly", false);
 disp(ev2(:,1));
+ev2 = run_bellman_mul(2, 2, 2, "poly", false, true);
+disp(ev2());
 
 % evaluate excess demand for a given price vector, p
 % [ed, ded, sol]=equilibrium.edf(mp, s, p);

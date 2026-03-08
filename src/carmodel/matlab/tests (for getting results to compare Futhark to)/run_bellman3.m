@@ -11,11 +11,11 @@ mp = setparams.default(); % default parameters used for illustration
 
 % set number of types
 mp.ntypes = 4;
-mp.ncartypes=5;
-mp.abar_j0 = {20};
+mp.ncartypes=15;
+mp.abar_j0 = {25};
 mp.pnew_notax = {100};
+mp.pnew = {100};
 mp.acc_0 = {-10};
-mp.u_0 = {6};
 mp.u_a = {-0.5};
 mp.u_a_sq = {0.0};
 mp.transcost = 0;
@@ -74,16 +74,12 @@ for t=1:mp.ntypes;
     % step 1: solve the DP problem for the price vector p for each consumer type
     bellman=@(ev) trmodel.bellman(mp, s, util(:,:,t), F, ev);
     ev_t = ev0(:, t);
-
-    for i=1:1;
-       ev_t = bellman (ev_t);    
-    end
-
-    ev_sa(:,t)= ev_t;
+    ev_sa(:,t)= dpsolver.sa(bellman, ev_t, ap);
+    ev_poly(:,t)= dpsolver.poly(bellman, ev_t, ap, mp.bet);
 
 end
 
-disp(max(ev_sa))
+disp(max(ev_poly))
 
 % evaluate excess demand for a given price vector, p
 % [ed, ded, sol]=equilibrium.edf(mp, s, p);
