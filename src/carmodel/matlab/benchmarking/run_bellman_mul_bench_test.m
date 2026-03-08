@@ -110,8 +110,8 @@ for n = 2:2:10
     write_ev_max('..\..\fut2\matlab2_res.dat', n, c, abar, 'B', ev);
 end
 
-ev = run_bellman_mul(4, 10, 15, "poly", false, true);
-disp(max(max(ev)));
+ev = run_bellman_mul(4, 15, 25, "poly", false, true);
+disp(max(ev));
 ev = run_bellman_mul(2, 35, 25, "sa", false, true);
 disp(max(ev));
 ev2 = run_bellman_mul(2, 2, 2, "poly", false);

@@ -151,6 +151,7 @@ entry test_bellmanN [c] (n:i64) (newprices:[c]f64) (Ax:i64) (N:i64) : ?[ns].trm.
 -- input { 2i64 [100f64,100f64] 2i64 2i64 }
 -- output { [13.43965002284233f64, 5.039207394202223f64, 13.43965002284233f64,
 --           5.039207394202223f64, 4.939207392712107f64] }
+
 entry test_bellmanN [c] (n:i64) (newprices:[c]f64) (Ax:i64) (N:i64) : ?[ns].trm.ev[ns] =
   let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
   let mp = trm.set_newprices mp newprices
