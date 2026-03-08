@@ -26,7 +26,7 @@ function [ev, ccp, dev] = bench_bellmanJ(n, c, abar, N)
     ap=dpsolver.setup;
     ap.printfxp=1;  % show output
     
-    t=1;  fprintf('Solving model for sonsumer type, tau=%d\n ', t);
+    t=1;
     
     % pre-compute utility
     util = trmodel.utility(mp, s, t, p);   % update the current period, post-trade payoffs stored in the global util_tau
