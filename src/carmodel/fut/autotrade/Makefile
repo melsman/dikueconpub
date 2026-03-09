@@ -8,7 +8,7 @@ all:
 
 .PHONY: clean
 clean:
-	rm -rf *~ doc *.c trmodel trmodel_test trmodel_static.* \
+	rm -rf *~ doc *.c trmodel trmodel_test trmodel_static trmodel_test trmodel_benchmark.fut.* \
 	       trmodel_benchmark-c.exe trmodel_benchmark-m.exe trmodel_benchmark-o.exe \
 	       bench_bellmanJ-*.tm bench_bellmanJ-*.tmavg trmodel_benchmark-*.out \
 	       bench_bellmanJ.dat
