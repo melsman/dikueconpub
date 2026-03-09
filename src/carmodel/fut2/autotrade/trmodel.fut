@@ -50,6 +50,7 @@ module type trmodel = {
 
   -- model getters
   val get_tw [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> [n]t
+  val get_mp_bet [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> t
 
   -- car prices (for new and old cars)
   type prices [c][Ax] = [Ax][c]t   -- c: ncartypes, Ax: maxage
@@ -178,6 +179,9 @@ module trmodel (R:real) : trmodel with t = R.t = {
 
   def get_tw [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) : [n]t =
     mp.tw
+
+  def get_mp_bet [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) : t =
+    mp.bet
 
   -- some utilities
   def mapi 'a 'b [n] (f: i64 -> a -> b) (xs:[n]a) : [n]b =

@@ -22,6 +22,8 @@ module type trmodel = {
   type mp [n][c][Ax][ns][nd]
   val mk : (n:i64) -> (c:i64) -> (Ax:i64) -> ?[ns][nd].mp[n][c][Ax][ns][nd]
 
+  val get_mp_bet [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> t
+
   val set_newprices  [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> [c]t ->
                                           mp[n][c][Ax][ns][nd]
 
@@ -116,6 +118,9 @@ module trmodel (R:real) : trmodel with t = R.t = {
   -- some utilities
   def mapi 'a 'b [n] (f: i64 -> a -> b) (xs:[n]a) : [n]b =
     map2 f (iota n) xs
+
+  def get_mp_bet [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) : t =
+    mp.bet
 
   -- some setters
   def set_newprices [n][c][Ax][ns][nd]
