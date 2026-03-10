@@ -1,6 +1,30 @@
 import "trmodel"
+import "../lib/github.com/diku-dk/linalg/dpsolve"
 
 module trm = trmodel f64
+module dps = mk_dpsolve_dense f64
+
+-- ==
+-- entry: bench_newton_single
+-- input { 1i64 20i64 40i64 40i64 0.0f64 }
+-- output { [178.7272f64, 40.0f64] }
+
+entry bench_newton_single (n:i64) (c:i64) (Ax:i64) (iter:i64) (tol:f64) : [2]f64 =
+  let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
+  let mp = trm.set_newprices mp (replicate c 100.0f64)
+  let p = trm.simple_prices mp 0.85
+  let u_0 = tabulate_2d n c
+		(\i j -> f64.(i64 5 + i64 2 * (i64 i + i64 j) / (i64 n + i64 c)))
+  let mp = trm.set_u_0 u_0 mp
+  let param = dps.default with pi_max = iter
+                            with pi_tol = tol
+  let tau = 0
+  let util : trm.utility [ns][nd] = trm.utility mp p tau
+  let tr = trm.age_transition mp
+  let f = trm.bellmanJ mp util tr
+  let ev0 = trm.ev0 mp
+  let {res=ev,jac=_,conv=_,iter=i,tol=_} = dps.nk f ev0 param
+  in [reduce f64.max (0.0) ev, (f64.i64 i)]
 
 -- ==
 -- entry: bench_bellmanJ
