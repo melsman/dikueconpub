@@ -19,7 +19,28 @@ module type trmodel = {
   val logsum2 : (sigma:t) -> t -> t -> t
 
   -- model parameters
-  type mp [n][c][Ax][ns][nd]
+  type mp [n][c][Ax][ns][nd] =
+     {bet             : t,
+      mum             : [n]t,
+      tw              : [n]t,
+      pnew            : [c]t,
+      pscrap          : [c]t,
+      psych_transcost : [n]t,
+      u_0             : [n][c]t,
+      u_a             : [n][c]t,
+      u_a_sq          : [n][c]t,
+      sigma           : t,
+      sigma_s         : t,
+      ns              : [ns](),
+      nd              : [nd](),
+      maxage          : [Ax](),
+      acc_0           : [c]t,
+      acc_a           : [c]t,
+      acc_even        : [c]t,
+      transcost       : t
+     }
+
+
   val mk : (n:i64) -> (c:i64) -> (Ax:i64) -> ?[ns][nd].mp[n][c][Ax][ns][nd]
 
   val set_newprices  [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> [c]t ->
