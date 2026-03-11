@@ -1,5 +1,5 @@
-import "trmodel"
-import "../lib/github.com/diku-dk/linalg/dpsolve"
+import "../trmodel"
+import "../../lib/github.com/diku-dk/linalg/dpsolve"
 
 module trm = trmodel f64
 module dps = mk_dpsolve_dense f64
@@ -9,6 +9,8 @@ module dps = mk_dpsolve_dense f64
 -- input { 1i64 20i64 40i64 40i64 0.0f64 }
 -- output { [178.7272f64, 40.0f64] }
 
+
+---- n is superfluous, but keeping it to make it easier to create a version with multiple consumer types
 entry bench_newton_single (n:i64) (c:i64) (Ax:i64) (iter:i64) (tol:f64) : [2]f64 =
   let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
   let mp = trm.set_newprices mp (replicate c 100.0f64)

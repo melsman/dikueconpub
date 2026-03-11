@@ -35,7 +35,7 @@ function write_benchmark(filename, n, c, abar, N, runtime)
     fclose(fid);
 end
 
-fid = fopen('..\fut\autotrade\matlab_benchj.dat', 'w');
+fid = fopen('..\fut\autotrade\benchmarking\matlab_benchj.dat', 'w');
 fclose(fid);
 
 n = 2;
@@ -44,7 +44,7 @@ N = 100;
 
 for abar = 5:5:40
     t = time_bellman(n, c, abar, N);
-    write_benchmark('..\fut\autotrade\matlab_benchj.dat', n, c, abar, N, t);
+    write_benchmark('..\fut\autotrade\benchmarking\matlab_benchj.dat', n, c, abar, N, t);
 end
 % evaluate excess demand for a given price vector, p
 % [ed, ded, sol]=equilibrium.edf(mp, s, p);
