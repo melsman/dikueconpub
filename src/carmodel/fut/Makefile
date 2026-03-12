@@ -20,6 +20,11 @@ clean:
 	$(MAKE) -C util clean
 	$(MAKE) -C autotrade clean
 
+clean_not_plots:
+	rm -rf *~ *.c run_bellman_ad run_bellman_j run_bellman run_bellman.fut.* run_bellman_ad.fut.* run_bellman_j.fut.* *.exe *.tm *.tmavg data1.dat data2.dat *.out data1j.dat data1ad.dat
+	$(MAKE) -C util clean
+	$(MAKE) -C autotrade clean
+
 .PHONY: test
 test:
 	$(FUTHARK) test -c run_bellman.fut run_bellman_ad.fut run_bellman_j.fut

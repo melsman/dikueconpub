@@ -49,7 +49,7 @@ module mk_run (R:real) = {
       let util : trm.utility [ns][nd] = trm.utility mp p tau
       let f = trm.bellmanJ mp util tr
       let {res=ev,jac=_,conv=b,iter_sa=i,iter_nk=j,rtrips=k,tol=_} =
-	dps.poly f ev0 param (R.f32 0)
+	dps.poly f ev0 param (trm.get_mp_bet mp)
       let mx = R.maximum ev
       in (mx,b,i,j,k)
     let (mxs,bs,is,js,ks) =
@@ -75,7 +75,7 @@ entry main (c:i64) (Ax:i64) (sa_max:i64) : []R.t =
 
 entry mainn (n:i64) (c:i64) (Ax:i64) : ([n]R.t,bool,i64,i64,[n]i64) =
   #[unsafe]
-  let sa_max = 3
+  let sa_max = 20 -- Used to be 3, but changing it to equal matlab
   let pnews : [c]R.t = replicate c 100
   let u_0 = tabulate_2d n c
 		(\i j -> R.(i64 5 + i64 2 * (i64 i + i64 j) / (i64 n + i64 c)))
