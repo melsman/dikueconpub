@@ -33,7 +33,6 @@ entry bench_linear_solver (n:i64) (c:i64) (Ax:i64) : [2]f64 =
   let (ev1, dV) = trm.bellmanJ mp util tr ev0
   let F = bench_ols.sub (bench_ols.eye ns) dV
   let x = map2 (f64.-) ev0 (bench_ols.ols F (map2 (f64.-) ev0 ev1))
-
   in [reduce f64.max (-f64.inf) x, reduce (+) 0.0 x]
 
 -- ==
@@ -42,7 +41,7 @@ entry bench_linear_solver (n:i64) (c:i64) (Ax:i64) : [2]f64 =
 -- output { [178.7272f64, 40.0f64] }
 
 
----- n is superfluous, but keeping it to make it easier to create a version with multiple consumer types
+---- n is superfluous, but keeping it to make it easier to create a version with multiple consumer types if I want to do that later
 entry bench_newton_single (n:i64) (c:i64) (Ax:i64) (iter:i64) (tol:f64) : [2]f64 =
   let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
   let mp = trm.set_newprices mp (replicate c 100.0f64)
