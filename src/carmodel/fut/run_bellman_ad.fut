@@ -36,7 +36,7 @@ module mk_run (R:real) = {
       let util : trm.utility [ns][nd] = trm.utility mp p tau
       let f = trm.bellman mp util tr
       let {res=ev,conv=b,iter_sa=i,iter_nk=j,rtrips=k,tol=_} =
-	dps.polyad f ev0 param (R.f32 0)
+	dps.polyad f ev0 param (trm.get_mp_bet mp)
       let mx = R.maximum ev
       in (mx,b,i,j,k)
     let (mxs,bs,is,js,ks) =
