@@ -1,8 +1,40 @@
 import "../trmodel"
 import "../../lib/github.com/diku-dk/linalg/dpsolve"
+import "../../lib/github.com/diku-dk/linalg/lu"
 
 module trm = trmodel f64
 module dps = mk_dpsolve_dense f64
+module lu = mk_lu f64
+
+local module bench_ols = {
+  type t = f64
+  type mat [n] = [n][n]t
+  def blksz : i64 = 16
+  def ols [n] (A:mat[n]) (b:[n]t) : [n]t = lu.ols blksz A b
+  def eye n = tabulate_2d n n (\i j -> f64.bool (i == j))
+  def sub a b = map2 (map2 (f64.-)) a b
+}
+
+-- ==
+-- entry: bench_linear_solver
+-- input { 1i64 30i64 25i64 }
+-- output { [158.0146f64, 114020.0f64] }
+entry bench_linear_solver (n:i64) (c:i64) (Ax:i64) : [2]f64 =
+  let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
+  let mp = trm.set_newprices mp (replicate c 100.0f64)
+  let p = trm.simple_prices mp 0.85
+  let u_0 = tabulate_2d n c
+    (\i j -> f64.(i64 5 + i64 2 * (i64 i + i64 j) / (i64 n + i64 c)))
+  let mp = trm.set_u_0 u_0 mp
+  let tau = 0
+  let util : trm.utility [ns][nd] = trm.utility mp p tau
+  let tr = trm.age_transition mp
+  let ev0 = trm.ev0 mp
+  let (ev1, dV) = trm.bellmanJ mp util tr ev0
+  let F = bench_ols.sub (bench_ols.eye ns) dV
+  let x = map2 (f64.-) ev0 (bench_ols.ols F (map2 (f64.-) ev0 ev1))
+
+  in [reduce f64.max (-f64.inf) x, reduce (+) 0.0 x]
 
 -- ==
 -- entry: bench_newton_single

@@ -3,7 +3,7 @@ FUTHARK=futhark
 #FUTHARK=$(HOME)/.local/bin/futhark
 
 .PHONY: all
-all: bench_bellmanJ.pdf bench_newton_single.pdf
+all: bench_bellmanJ.pdf bench_newton_single.pdf bench_linear_solver.pdf
 
 .PHONY: clean
 clean:
@@ -110,3 +110,42 @@ bench_newton_single.pdf: plot_newton_single.gp bench_newton_single.dat matlat_ne
 
 .PHONY: bench_newton_single_plot
 bench_newton_single_plot: bench_newton_single.pdf
+
+# =========================================================
+# Linear solver benchmark
+# stem format: n-c-Ax
+# =========================================================
+
+bench_linear_solver-%-C.tm: trmodel_benchmark-c.exe
+	echo "$*" | sed 's/-/ /g' | ./$< -e bench_linear_solver -r 5 -t $@ > trmodel_benchmark-$*-linear-c.out
+
+bench_linear_solver-%-M.tm: trmodel_benchmark-m.exe
+	echo "$*" | sed 's/-/ /g' | ./$< -e bench_linear_solver -r 5 -t $@ > trmodel_benchmark-$*-linear-m.out
+
+bench_linear_solver-%-O.tm: trmodel_benchmark-o.exe
+	echo "$*" | sed 's/-/ /g' | ./$< -d AMD -e bench_linear_solver -r 5 -t $@ > trmodel_benchmark-$*-linear-o.out
+
+LINEAR_DATA=1-5-25 1-10-25 1-15-25 1-20-25 1-25-25 1-30-25 1-35-25 1-40-25 1-45-25 1-50-25
+
+LINEAR_C_FILES=$(LINEAR_DATA:%=bench_linear_solver-%-C.tmavg)
+LINEAR_M_FILES=$(LINEAR_DATA:%=bench_linear_solver-%-M.tmavg)
+LINEAR_O_FILES=$(LINEAR_DATA:%=bench_linear_solver-%-O.tmavg)
+
+LINEAR_FILES=$(LINEAR_M_FILES) $(LINEAR_C_FILES)
+#LINEAR_FILES=$(LINEAR_O_FILES) $(LINEAR_M_FILES) $(LINEAR_C_FILES)
+
+bench_linear_solver.dat: $(LINEAR_FILES)
+	rm -f $@
+	for n in $^ ; do \
+             /bin/echo -n $$n | sed 's/[a-z_]*//g' | sed 's/[-.]/ /g' >> $@ ; \
+             cat $$n >> $@ ; \
+        done
+
+.PHONY: bench_linear_solver_all
+bench_linear_solver_all: $(LINEAR_FILES)
+
+bench_linear_solver.pdf: plot_linear_solver.gp bench_linear_solver.dat matlab_linear_bench.dat
+	gnuplot -e "load \"$<\""
+
+.PHONY: bench_linear_solver_plot
+bench_linear_solver_plot: bench_linear_solver.pdf
