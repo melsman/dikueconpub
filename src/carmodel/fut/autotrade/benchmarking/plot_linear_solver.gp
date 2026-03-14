@@ -1,7 +1,7 @@
 reset
 set xlabel "car types"
 set ylabel "time (s)"
-set title "Linear solve benchmark (1 household, maxage 25 years)"
+set title "Benchmark for single Newton step up to the linear solve (1 household, maxage 25 years)"
 set term pdf
 set output "bench_linear_solver.pdf"
 

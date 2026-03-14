@@ -23,7 +23,7 @@ function write_benchmark_linear(filename, n, c, abar, method, runtime)
     fclose(fid);
 end
 
-fid = fopen('..\fut\autotrade\benchmarking\matlab_linear_solve_bench.dat', 'w');
+fid = fopen('..\fut\autotrade\benchmarking\matlab_linear_bench.dat', 'w');
 fclose(fid);
 
 n = 1;
@@ -31,7 +31,7 @@ abar = 25;
 
 for c = 5:5:50
     [x, t] = bench_solve_linear(c, abar);
-    write_benchmark_linear('..\fut\autotrade\benchmarking\matlab_linear_solve_bench.dat', ...
+    write_benchmark_linear('..\fut\autotrade\benchmarking\matlab_linear_bench.dat', ...
                            n, c, abar, "B", t);
 end
 
