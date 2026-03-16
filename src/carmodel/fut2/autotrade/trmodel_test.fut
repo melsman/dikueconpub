@@ -76,7 +76,7 @@ entry test_trade (n:i64) (c:i64) (Ax:i64) : [][]f64 =
 
 -- ==
 -- entry: test_age_transition_dmsmm_notrade
--- input { 1i64 2i64 3i64 }
+-- input { 1i64 2i64 3i64 -0.5f64 0.0f64}
 -- output { [ [ 0f64, 0.9999546f64, 0.00004539786f64, 0f64, 0f64, 0f64, 0f64 ],
 --            [ 0f64, 0f64, 1f64, 0f64, 0f64, 0f64, 0f64 ],
 --            [ 0.9999546f64, 0f64, 0.00004539786f64, 0f64, 0f64, 0f64, 0f64 ],
@@ -85,8 +85,10 @@ entry test_trade (n:i64) (c:i64) (Ax:i64) : [][]f64 =
 --            [ 0f64, 0f64, 0f64, 0.9999546f64, 0f64, 0.00004539786f64, 0f64 ],
 --            [ 0f64, 0f64, 0f64, 0f64, 0f64, 0f64, 1f64 ] ] }
 
-entry test_age_transition_dmsmm_notrade (n:i64) (c:i64) (Ax:i64) : [][]f64 =
+entry test_age_transition_dmsmm_notrade (n:i64) (c:i64) (Ax:i64) (u_a:f64) (u_a_sq:f64) : [][]f64 =
   let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
+  let mp = trm.set_u_a (replicate n (replicate c u_a)) mp
+  let mp = trm.set_u_a_sq (replicate n (replicate c u_a_sq)) mp
   let eye = tabulate_2d ns ns (\i j -> if i==j then 1f64 else 0f64)
   let trans = trm.age_transition mp
   in trm.age_transition_dmsmm_notrade eye trans

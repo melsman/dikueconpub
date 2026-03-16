@@ -54,6 +54,24 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         )
         in map2 (\d s->R.(d-s)) demand supply
 
+    def price_basis [c][Ax] (a:i64) (j:i64) : trm.prices[c][Ax] =
+        tabulate_2d Ax c (\a' j' -> R.bool (a == a' && j == j'))
+
+    ---- There is highly likely sparsity here that I am not taking advantage of. In particular,
+    ---- the Jacobian is likely very sparse, since a chance in price for a car will only affect the utility of consumers who own that car
+    ---- or buy that car
+    def utility_dprice_ad [n][c][Ax][ns][nd]
+        (mp: trm.mp[n][c][Ax][ns][nd])
+        (p: trm.prices[c][Ax])
+        (tau: i64)
+        : [Ax-1][c][ns][nd]t =
+        let f = \p' -> trm.utility mp p' tau
+        -- Note that the prices for age-zero cars are known, and thus not endogenous, so we only take the derivative with respect
+        -- to the other ages
+        let du =
+            tabulate_2d (Ax-1) c (\a j ->
+            jvp f p (price_basis (a+1) j))
+        in du
 
 
     ------- edf functions
