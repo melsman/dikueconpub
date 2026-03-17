@@ -73,6 +73,25 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             jvp f p (price_basis (a+1) j))
         in du
 
+    --- It doesn't seem like like utility of prices depend on the current price of the car - i.e. the derivative is linear.
+    --- Will need to modify this if I 
+    def utility_dprice_man [n][c][Ax][ns][nd]
+            (mp: trm.mp[n][c][Ax][ns][nd])
+            (tau: i64)
+        : [Ax-1][c][ns][nd]t =
+        let mu = mp.mum[tau]
+        in tabulate_2d (Ax-1) c (\age cartype ->
+            let row = cartype*Ax + age
+            --- The first 1 added in col is because the first decision is keeping, and the reason (age+1) is used
+            --- is because that in decisions, cars range from age 0 to Ax-1, but in states, they range from 1 + Ax.
+            let col = 1 + cartype*Ax + (age+1)
+            in tabulate_2d ns nd (\s d ->
+                    let row_val = (if ((s == row) && not (d == 0)) then mu else R.i64 0)
+                    let col_val = (if d == col then R.(i64 0-mu) else R.i64 0)
+                    in R.(row_val + col_val)
+                    )
+                )
+
 
     ------- edf functions
     --- this one is mostly for testing
