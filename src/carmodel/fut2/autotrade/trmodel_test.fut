@@ -6,12 +6,10 @@ module trm = trmodel f64
 -- ==
 -- entry: test_simple_prices
 -- input { 2i64 [200f64,200f64] 3i64 }
--- output { [ [ 200f64, 200f64 ],
---            [ 170f64, 170f64 ],
---            [ 144.5f64, 144.5f64 ] ] }
+-- output { [ [ 200f64, 170f64, 144.5f64 ],
+--            [ 200f64, 170f64, 144.5f64 ] ] }
 -- input { 2i64 [170f64] 2i64 }
--- output { [ [ 170f64 ],
---            [ 144.5f64 ] ] }
+-- output { [ [ 170f64, 144.5f64 ] ] }
 
 entry test_simple_prices [c] (n:i64) (newprices:[c]f64) (Ax:i64) : trm.prices[c][Ax] =
   let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax

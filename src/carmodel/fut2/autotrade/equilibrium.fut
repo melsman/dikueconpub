@@ -54,8 +54,12 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         )
         in map2 (\d s->R.(d-s)) demand supply
 
-    def price_basis [c][Ax] (a:i64) (j:i64) : trm.prices[c][Ax] =
-        tabulate_2d Ax c (\a' j' -> R.bool (a == a' && j == j'))
+    -------------------------------
+    ------ Derivatives - AD -------
+    -------------------------------
+
+    def price_basis [c][Ax] (cartype:i64) (age:i64) : trm.prices[c][Ax] =
+    tabulate_2d c Ax (\cartype' age' -> R.bool (cartype == cartype' && age == age'))
 
     ---- There is highly likely sparsity here that I am not taking advantage of. In particular,
     ---- the Jacobian is likely very sparse, since a chance in price for a car will only affect the utility of consumers who own that car
@@ -64,23 +68,27 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         (mp: trm.mp[n][c][Ax][ns][nd])
         (p: trm.prices[c][Ax])
         (tau: i64)
-        : [Ax-1][c][ns][nd]t =
+        : [c][Ax-1][ns][nd]t =
         let f = \p' -> trm.utility mp p' tau
         -- Note that the prices for age-zero cars are known, and thus not endogenous, so we only take the derivative with respect
         -- to the other ages
         let du =
-            tabulate_2d (Ax-1) c (\a j ->
-            jvp f p (price_basis (a+1) j))
+            tabulate_2d c (Ax-1) (\j a ->
+            jvp f p (price_basis j (a+1)))
         in du
 
+
+    --------------------------------
+    ------ Derivaties - non-AD -----
+    --------------------------------
+
     --- It doesn't seem like like utility of prices depend on the current price of the car - i.e. the derivative is linear.
-    --- Will need to modify this if I 
+    --- Will need to modify this if I implement ptransport.
     def utility_dprice_man [n][c][Ax][ns][nd]
             (mp: trm.mp[n][c][Ax][ns][nd])
-            (tau: i64)
-        : [Ax-1][c][ns][nd]t =
+            (tau: i64) : [c][Ax-1][ns][nd]t =
         let mu = mp.mum[tau]
-        in tabulate_2d (Ax-1) c (\age cartype ->
+        in tabulate_2d c (Ax-1) (\cartype age ->
             let row = cartype*Ax + age
             --- The first 1 added in col is because the first decision is keeping, and the reason (age+1) is used
             --- is because that in decisions, cars range from age 0 to Ax-1, but in states, they range from 1 + Ax.
@@ -92,6 +100,15 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
                     )
                 )
 
+    def dbellman_prices_man [Ax][c][ns][nd]
+        (ccp : [ns][nd]f64)
+        (du  : [c][Ax-1][ns][nd]f64) : [c][Ax-1][ns]f64 =
+        tabulate_2d c (Ax-1) (\cartype age ->
+            tabulate ns (\s ->
+            reduce (+) 0.0
+                (map2 (*) ccp[s] du[cartype][age][s])
+                )
+            )
 
     ------- edf functions
     --- this one is mostly for testing
@@ -112,11 +129,11 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
     --    let 
 
     ---- test functions
-     def utils_single [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (tau:i64) : [ns][nd]t =
+     def utils_single [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[c][Ax]t) (tau:i64) : [ns][nd]t =
         let utils : trm.utility [ns][nd] = trm.utility mp p tau
         in utils
 
-    def solve_single [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (tau:i64) (sa_max:i64) : [ns]t =
+    def solve_single [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[c][Ax]t) (tau:i64) (sa_max:i64) : [ns]t =
         let utils : trm.utility [ns][nd] = trm.utility mp p tau
         let tr = trm.age_transition mp
         let ev0 = trm.ev0 mp
@@ -125,7 +142,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.f32 0)
         in ev
 
-    def edf_ccp_tau [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (tau:i64) (sa_max:i64) : [ns][nd]t  =
+    def edf_ccp_tau [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[c][Ax]t) (tau:i64) (sa_max:i64) : [ns][nd]t  =
         let utils : trm.utility [ns][nd] = trm.utility mp p tau
         let tr = trm.age_transition mp
         let ev0 = trm.ev0 mp
@@ -137,7 +154,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
         in ccp
 
-    def edf_q_delta [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (tau:i64) (sa_max:i64) : [ns][ns]t  =
+    def edf_q_delta [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[c][Ax]t) (tau:i64) (sa_max:i64) : [ns][ns]t  =
         let utils : trm.utility [ns][nd] = trm.utility mp p tau
         let tr = trm.age_transition mp
         let ev0 = trm.ev0 mp
@@ -150,7 +167,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let (delta, _, _) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
         in delta
     
-    def edf_q_tau [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (tau:i64) (sa_max:i64) : [ns]t  =
+    def edf_q_tau [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[c][Ax]t) (tau:i64) (sa_max:i64) : [ns]t  =
         let utils : trm.utility [ns][nd] = trm.utility mp p tau
         let tr = trm.age_transition mp
         let ev0 = trm.ev0 mp
@@ -165,7 +182,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let q_tau : [ns]t = ergodic ctp
         in q_tau
 
-    def edf_tau_test [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (tau:i64) (sa_max:i64) : ?[np].[np]t  =
+    def edf_tau_test [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[c][Ax]t) (tau:i64) (sa_max:i64) : ?[np].[np]t  =
         let utils : trm.utility [ns][nd] = trm.utility mp p tau
         let ccp_scrap_tau = trm.ccp_scrap_tau mp p tau
         let tr = trm.age_transition mp
@@ -181,7 +198,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let q_tau : [ns]t = ergodic ctp
         in ed_tau q_tau deltaK_diag deltaT mp ccp_scrap_tau
 
-    def edf_test [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[Ax][c]t) (sa_max:i64) : ?[np].[np]t  =
+    def edf_test [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[c][Ax]t) (sa_max:i64) : ?[np].[np]t  =
         let comp (tau:i64) : [ns]t =
             let utils : trm.utility [ns][nd] = trm.utility mp p tau
             let tr = trm.age_transition mp

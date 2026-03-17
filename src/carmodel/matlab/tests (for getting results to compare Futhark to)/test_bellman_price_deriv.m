@@ -10,34 +10,27 @@ clc
 mp = setparams.default(); % default parameters used for illustration
 
 % set number of types
-mp.ntypes = 4;
-mp.ncartypes=15;
-mp.abar_j0 = {25};
-mp.pnew_notax = {100};
-mp.pnew = {100};
-mp.acc_0 = {-10};
-mp.u_a = {-0.5};
-mp.u_a_sq = {0.0};
+mp.ntypes = 3;
+mp.ncartypes=2;
+mp.abar_j0 = {3,3};
+mp.pnew_notax = {100,100};
+mp.acc_0 = {-10,-10};
+mp.u_0 = {6, 6};
+mp.u_a = {-0.5, -0.5};
+mp.u_a_sq = {0.0, 0.0};
 mp.transcost = 0;
 mp.vat = 0;
 mp.cartax_lo =  0;   % registration tax (below kink, K_cartax_hi)
 mp.cartax_hi =  0;   % registration tax (above kink, K_cartax_hi)
 mp.tax_fuel  =  0;   % proportional fuel tax 
 mp.K_cartax_hi = 0;       % mp.K_cartax_hi before mp.cartax_hi tax kicks in
-mp.mum = {0.1};
-
-n = mp.ntypes
-c = mp.ncartypes
-[I, J] = ndgrid(0:n-1, 0:c-1);
-u_0 = 5 + 2 * (I + J) / (n + c);
-mp.u_0 = num2cell(u_0);
+mp.mum = {0.1, 0.1};
 
 % update model parameter dependencies
 mp = trmodel.update_mp(mp);
 
 % model indexing
 s = trmodel.index(mp);
-disp(mp.u_0);
 
 % initialize prices where to solve bellman
 % p = equilibrium.price_init(mp,s);
@@ -50,7 +43,6 @@ function [sp] = simple_prices(mp, r,s)
     end
 end
 p = simple_prices(mp,0.85,s);
-disp(p);
 
 ev0=zeros(s.ns, mp.ntypes); % initial guess on expected value function
 
@@ -65,21 +57,20 @@ F = trmodel.age_transition(mp, s);
 ap=dpsolver.setup;
 ap.printfxp=2;  % show output
 
-for t=1:mp.ntypes;
-	fprintf('tau=%d\n ', t)
+%fprintf('tau=%d\n ', t)
+[util(:,:,1), ev_scap, ccp_scrap]  = trmodel.utility(mp, s, 1, p);
 
-	% pre-compute utility
-	util(:,:,t) = trmodel.utility(mp, s, t, p);   % update the current period, post-trade payoffs stored in the global util_tau
+[du, d_scrap] = g_trmodel.du_dp(mp, s, 1, ccp_scrap);
 
-    % step 1: solve the DP problem for the price vector p for each consumer type
-    bellman=@(ev) trmodel.bellman(mp, s, util(:,:,t), F, ev);
-    ev_t = ev0(:, t);
-    ev_sa(:,t)= dpsolver.sa(bellman, ev_t, ap);
-    ev_poly(:,t)= dpsolver.poly(bellman, ev_t, ap, mp.bet);
+[ev, ccp] = trmodel.bellman(mp, s, util(:,:,1), F, ev0(:, 1));
 
-end
+ctp = [];
+daccprob = [];
+delta = [];
 
-disp(max(ev_poly))
+dbellman = g_trmodel.dbellman(mp, s, ev, ccp, ccp_scrap, ctp, delta, du, daccprob, 'prices');
+disp(ev);
+disp(dbellman);
 
 % evaluate excess demand for a given price vector, p
 % [ed, ded, sol]=equilibrium.edf(mp, s, p);

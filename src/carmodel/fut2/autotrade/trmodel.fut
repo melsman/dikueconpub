@@ -74,7 +74,7 @@ module type trmodel = {
   val get_mp_bet [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> t
 
   -- car prices (for new and old cars)
-  type prices [c][Ax] = [Ax][c]t   -- c: ncartypes, Ax: maxage
+  type prices [c][Ax] = [c][Ax]t   -- c: ncartypes, Ax: maxage
 
   val simple_prices  [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> t -> prices[c][Ax]
 
@@ -248,11 +248,11 @@ module trmodel (R:real) : trmodel with t = R.t = {
 
   ------- Car prices
 
-  type prices [c][Ax] = [Ax][c]t   -- c: ncartypes
+  type prices [c][Ax] = [c][Ax]t   -- c: ncartypes
 
   def simple_prices [n][c][Ax][ns][nd] (mp:mp [n][c][Ax][ns][nd]) (r:t) : prices [c][Ax] =
     let is = ([R.i32 1] ++ scan (R.*) (R.i32 1) (replicate (Ax-1) r)) :> [Ax]t
-    in transpose (map (\p -> map (R.* p) is) mp.pnew)
+    in (map (\p -> map (R.* p) is) mp.pnew)
 
   type car = {cartype: i64, age: i64}
   type state = #NoCar | #Car car
@@ -264,7 +264,7 @@ module trmodel (R:real) : trmodel with t = R.t = {
     case #Car {cartype,age} ->
       assert (age >= 0 && age <= Ax)
       (if age == Ax then mp.pscrap[cartype]
-       else p[age,cartype])
+       else p[cartype,age])
 
   def carprice_buy [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:prices[c][Ax]) (d:decision) : t =
     match d
@@ -272,7 +272,7 @@ module trmodel (R:real) : trmodel with t = R.t = {
     case #Purge -> R.f32 0
     case #Trade {cartype,age} ->
       assert (age >= 0 && age < Ax)  -- notice age < Ax!!
-       (R.(p[age,cartype] + mp.transcost))
+       (R.(p[cartype,age] + mp.transcost))
 
   ------- Car utility
 
