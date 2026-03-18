@@ -116,6 +116,8 @@ end
 
 disp(dbellman)
 disp(dev);
+disp(dctp);
+disp(du);
 % disp(ctp_tau{t});
 % disp(dctp);
 
