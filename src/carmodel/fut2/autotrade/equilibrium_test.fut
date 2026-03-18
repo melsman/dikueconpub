@@ -54,6 +54,7 @@ entry test_solve_single  (n:i64) (c:i64) (Ax:i64) : ?[ns].[ns]f64 =
 --          [0.0f64, 0.4951f64, 0.0005f64, 0.4951f64, 0.0005f64, 0.0084f64],
 --          [0.0f64, 0.4951f64, 0.0005f64, 0.4951f64, 0.0005f64, 0.0084f64]] }
 
+
 entry test_edf_ccp (n:i64) (c:i64) (Ax:i64) : ?[ns][nd].[ns][nd]f64 =
     let sa_max = 3
     let pnews : [c]f64 = replicate c 100.0f64
@@ -94,6 +95,19 @@ entry test_edf_q_tau (n:i64) (c:i64) (Ax:i64) : ?[ns].[ns]f64 =
     let mp = trm.set_newprices mp pnews
     let p = trm.simple_prices mp (f64.f32 0.85)
     in eqb.edf_q_tau mp p 1 sa_max
+
+-- ==
+-- entry: test_edf_q_tau_2
+-- input {2i64 2i64 2i64 }
+-- output { [0.4951f64, 0.0007f64, 0.4951f64, 0.0007f64, 0.0084f64] }
+
+entry test_edf_q_tau_2 (n:i64) (c:i64) (Ax:i64) : ?[ns].[ns]f64 =
+    let sa_max = 3
+    let pnews : [c]f64 = replicate c 100.0f64
+    let mp = trm.mk n c Ax
+    let mp = trm.set_newprices mp pnews
+    let p = trm.simple_prices mp (f64.f32 0.85)
+    in eqb.edf_q_tau_2 mp p 1 sa_max
 
 -- ==
 -- entry: test_edf_tau_test

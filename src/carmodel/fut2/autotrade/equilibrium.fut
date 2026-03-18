@@ -1,9 +1,11 @@
 import "trmodel"
 import "../lib/github.com/diku-dk/linalg/lup"
+import "../lib/github.com/diku-dk/linalg/lu"
 import "../lib/github.com/diku-dk/linalg/dpsolve"
 
 module equilibrium (R:real) (trm:trmodel with t = R.t) = {
 
+    module lu = mk_lu R
     module lup = mk_lup R
     module dps = mk_dpsolve_dense R
     
@@ -59,7 +61,10 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
     -------------------------------
 
     def price_basis [c][Ax] (cartype:i64) (age:i64) : trm.prices[c][Ax] =
-    tabulate_2d c Ax (\cartype' age' -> R.bool (cartype == cartype' && age == age'))
+        tabulate_2d c Ax (\cartype' age' -> R.bool (cartype == cartype' && age == age'))
+
+    def utility_basis [ns][nd] (s:i64) (d:i64) : [ns][nd]t =
+        tabulate_2d ns nd (\s' d' -> R.bool (s == s' && d == d'))
 
     ---- There is highly likely sparsity here that I am not taking advantage of. In particular,
     ---- the Jacobian is likely very sparse, since a chance in price for a car will only affect the utility of consumers who own that car
@@ -76,6 +81,29 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             tabulate_2d c (Ax-1) (\j a ->
             jvp f p (price_basis j (a+1)))
         in du
+
+    def ctp_from_mp_p [n][c][Ax][ns][nd]
+        (mp: mp[n][c][Ax][ns][nd])
+        (p: trm.prices[c][Ax]) (tau:i64) (ev_s:trm.ev[ns]) : [ns][ns]t =
+        let utils : trm.utility [ns][nd] = trm.utility mp p tau
+        let tr = trm.age_transition mp
+        let (ev, v) = trm.bellman0 mp utils tr ev_s
+        let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+        let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+        let (delta, _, _) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
+        let ctp : [ns][ns]t = trm.ctp_tau tr delta
+        in ctp
+        
+    def ctp_from_utils [n][c][Ax][ns][nd]
+        (mp: trm.mp[n][c][Ax][ns][nd])
+        (tr: trm.transition[ns])
+        (utils: trm.utility[ns][nd])
+        (ev_s: trm.ev[ns]) : [ns][ns]t =
+        let (ev, v) = trm.bellman0 mp utils tr ev_s
+        let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+        let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+        let (delta, _, _) = trm.trade_transition mp ccp
+        in trm.ctp_tau tr delta
 
 
     --------------------------------
@@ -101,33 +129,44 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
                 )
 
     def dbellman_prices_man [Ax][c][ns][nd]
-        (ccp : [ns][nd]f64)
-        (du  : [c][Ax-1][ns][nd]f64) : [c][Ax-1][ns]f64 =
+        (ccp : [ns][nd]t)
+        (du  : [c][Ax-1][ns][nd]t) : [c][Ax-1][ns]t =
         tabulate_2d c (Ax-1) (\cartype age ->
             tabulate ns (\s ->
-            reduce (+) 0.0
-                (map2 (*) ccp[s] du[cartype][age][s])
+            reduce (\i j -> R.(i+j)) (R.i64 0)
+                (map2 (\i j -> R.(i*j)) ccp[s] du[cartype][age][s])
                 )
             )
 
-    ------- edf functions
-    --- this one is mostly for testing
-    --- a bit annoying that I have to calculate ccp and delta again outside bellman, but it seems to be necessary since
-    --- dpsolver requires two outputs
-    --def edf_single [n][c][Ax][ns][nd][np] (mp:mp[n][c][Ax][ns][nd]) (p:[np]t) (t:tau) : ((trm.utility[ns][nd]), [ns][nd]t, [ns][ns]t, [ns]t, [np]t)  =
-    --    let utils = trm.utility [ns][nd] = trm.utility mp p tau
-    --    let tr = trm.age_transition mp
-    --    let ev0 = trm.ev0 mp
-    --    let f = trm.bellmanJ mp util tr
-    --    let param = dps.default with sa_max=sa_max
-    --    let {res=ev,jac=_,conv=b,iter_sa=i,iter_nk=j,rtrips=k,tol} = dps.poly f ev0 param (R.f32 0)
-    --    let (_, v) = trm.bellman0 mp utils tr ev
-    --    let ccp : [ns][nd]t = map2 (\r x -> map (R.exp <-< (R./ mp.sigma) <-< (R.- x)) r) v ev
-    --    let delta : [ns][ns]t = trm.trade_transition mp ccp
-    --    let ctp : [ns][ns]t = ctp_tau tr delta
-    --    let q_tau : [ns][t] = ergodic ctp
-    --    let 
+    def dev_fixed_point_dprice [n][c][Ax][ns][nd]
+            (mp: mp[n][c][Ax][ns][nd])
+            (ctp: [ns][ns]t)
+            (dbellman: [c][Ax-1][ns]t) : [c][Ax-1][ns]t =
+        let par_mat : [ns][ns]t =
+            tabulate_2d ns ns (\i j ->
+            let eye = R.bool (i == j)
+            in R.(eye - mp.bet * ctp[i,j]))
+        let blksz : i64 = 16
+        in tabulate_2d c (Ax-1) (\cartype age ->
+            lu.ols blksz par_mat dbellman[cartype][age])
+        
 
+
+
+
+    -- def ctp_dprice_via_utils_ad [n][c][Ax][ns][nd]
+    --    (mp: trm.mp[n][c][Ax][ns][nd])
+    --    (p: trm.prices[c][Ax])
+    --    (tau: i64)
+    --    (ev_s: trm.ev[ns])
+    --    : [c][Ax-1][ns][ns]t =
+    --    let tr = trm.age_transition mp
+    --    let utils = trm.utility mp p tau
+    --    let du_dp = utility_dprice_man mp tau
+    --    let g = \u -> ctp_from_utils mp tr u ev_s
+    --    in tabulate_2d c (Ax-1) (\cartype age ->
+    --        jvp g utils du_dp[cartype][age])
+        
     ---- test functions
      def utils_single [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[c][Ax]t) (tau:i64) : [ns][nd]t =
         let utils : trm.utility [ns][nd] = trm.utility mp p tau
@@ -179,6 +218,17 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
         let (delta, _, _) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
         let ctp : [ns][ns]t = trm.ctp_tau tr delta
+        let q_tau : [ns]t = ergodic ctp
+        in q_tau
+
+    def edf_q_tau_2 [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[c][Ax]t) (tau:i64) (sa_max:i64) : [ns]t  =
+        let utils : trm.utility [ns][nd] = trm.utility mp p tau
+        let tr = trm.age_transition mp
+        let ev0 = trm.ev0 mp
+        let f = trm.bellmanJ mp utils tr
+        let param = dps.default with sa_max=sa_max
+        let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.f32 0)
+        let ctp = ctp_from_utils mp tr utils ev 
         let q_tau : [ns]t = ergodic ctp
         in q_tau
 
