@@ -105,6 +105,16 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let (delta, _, _) = trm.trade_transition mp ccp
         in trm.ctp_tau tr delta
 
+    def ccp_from_utils [n][c][Ax][ns][nd]
+        (mp: trm.mp[n][c][Ax][ns][nd])
+        (tr: trm.transition[ns])
+        (utils: trm.utility[ns][nd])
+        (ev_s: trm.ev[ns]) : [ns][nd]t =
+        let (ev, v) = trm.bellman0 mp utils tr ev_s
+        let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+        let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+        in ccp
+
 
     --------------------------------
     ------ Derivaties - non-AD -----
@@ -149,6 +159,40 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let blksz : i64 = 16
         in tabulate_2d c (Ax-1) (\cartype age ->
             lu.ols blksz par_mat dbellman[cartype][age])
+    
+    def dccp_dprices_from_du_dev [n][c][Ax][ns][nd]
+            (mp: trm.mp[n][c][Ax][ns][nd])
+            (tr: trm.transition[ns])
+            (utils: trm.utility[ns][nd])
+            (ev: trm.ev[ns])
+            (du: [c][Ax-1][ns][nd]t)
+            (dev: [c][Ax-1][ns]t) : [c][Ax-1][ns][nd]t =
+        let g = \(u, e) -> ccp_from_utils mp tr u e
+        in tabulate_2d c (Ax-1) (\cartype age ->
+            jvp g (utils, ev) (du[cartype][age], dev[cartype][age]))
+
+    def ccp_dprice_full [n][c][Ax][ns][nd]
+        (mp: trm.mp[n][c][Ax][ns][nd])
+        (p: trm.prices[c][Ax])
+        (tau: i64)
+        (ev: trm.ev[ns])  : [c][Ax-1][ns][nd]t =
+        let tr = trm.age_transition mp
+        let utils : trm.utility[ns][nd] = trm.utility mp p tau
+        let ctp : [ns][ns]t = ctp_from_utils mp tr utils ev
+
+        let du : [c][Ax-1][ns][nd]t =
+            utility_dprice_man mp tau
+
+        let (ev1, v) = trm.bellman0 mp utils tr ev
+        let ccp : [ns][nd]t = trm.ccp_tau mp v ev1
+
+        let dbellman : [c][Ax-1][ns]t =
+            dbellman_prices_man ccp du
+
+        let dev : [c][Ax-1][ns]t =
+            dev_fixed_point_dprice mp ctp dbellman
+
+        in dccp_dprices_from_du_dev mp tr utils ev du dev
         
 
     def dctp_dprices_from_du_dev [n][c][Ax][ns][nd]
@@ -176,7 +220,6 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
 
         let (ev1, v) = trm.bellman0 mp utils tr ev
         let ccp : [ns][nd]t = trm.ccp_tau mp v ev1
-        let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
 
         let dbellman : [c][Ax-1][ns]t =
             dbellman_prices_man ccp du

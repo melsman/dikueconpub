@@ -122,9 +122,8 @@ end
 % disp(ctp_tau{t});
 % disp(dctp);
 disp(dq);
-disp(ccp_t);
+disp(ccp)
 disp(dccp);
-disp(dctp);
 
 % solve for equilibrium price
 % [sol]=equilibrium.solve(mp, s); % solve model in baseline

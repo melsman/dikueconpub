@@ -39,7 +39,7 @@ entry test_ctp_from_utils [c] (n:i64) (newprices:[c]f64) (Ax:i64) : ?[ns].[ns][n
     in eqb.ctp_from_utils mp tr utils ev
 
 
--- Look at sparsity for the below later.
+-- Look at sparsity/simplification for the below later.
 -- ==
 -- entry: test_ctp_deriv_ad
 -- input { 2i64 [100f64, 100f64] 2i64 }
@@ -66,6 +66,33 @@ entry test_ctp_deriv_ad [c] (n:i64) (newprices:[c]f64) (Ax:i64) : ?[ns].[c][Ax-1
     let param = eqb.dps.default
     let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = eqb.dps.poly f ev0 param (f64.f32 0)
     in eqb.ctp_dprice_full mp p tau ev
+
+-- ==
+-- entry: test_ccp_deriv_ad
+-- input { 2i64 [100f64, 100f64] 2i64 }
+-- output {  [[[[-0.0001f64, 0.0238f64, -0.0001f64, -0.0232f64, -0.0000f64, -0.0004f64], 
+--              [0.0000f64, 0.0238f64, -0.0001f64, -0.0232f64, -0.0000f64, -0.0004f64], 
+--              [-0.0000f64,0.0238f64, -0.0001f64, -0.0232f64, -0.0000f64, -0.0004f64],
+--              [0.0000f64, 0.0238f64, -0.0001f64, -0.0232f64, -0.0000f64, -0.0004f64],
+--              [0.0000f64, 0.0238f64, -0.0001f64, -0.0232f64, -0.0000f64, -0.0004f64]]], 
+--            [[[-0.0000f64, -0.0233f64, -0.0000f64, 0.0238f64, -0.0001f64, -0.0004f64], 
+--              [0.0000f64, -0.0233f64, -0.0000f64, 0.0238f64, -0.0001f64, -0.0004f64], 
+--              [-0.0000f64, -0.0233f64, -0.0000f64, 0.0238f64, -0.0001f64, -0.0004f64],
+--              [0.0000f64, -0.0233f64, -0.0000f64, 0.0238f64, -0.0001f64, -0.0004f64],
+--              [0.0000f64, -0.0233f64, -0.0000f64, 0.0238f64, -0.0001f64, -0.0004f64]]]]}
+
+entry test_ccp_deriv_ad [c] (n:i64) (newprices:[c]f64) (Ax:i64) : ?[ns][nd].[c][Ax-1][ns][nd]f64 =
+    let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
+    let mp = trm.set_newprices mp newprices
+    let p = trm.simple_prices mp 0.85
+    let tau = 0
+    let utils : trm.utility [ns][nd] = trm.utility mp p tau
+    let tr = trm.age_transition mp
+    let ev0 = trm.ev0 mp
+    let f = trm.bellmanJ mp utils tr
+    let param = eqb.dps.default
+    let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = eqb.dps.poly f ev0 param (f64.f32 0)
+    in eqb.ccp_dprice_full mp p tau ev
 
 -- ==
 -- entry: test_dev_prices
