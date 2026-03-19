@@ -18,6 +18,20 @@ entry test_ctp_from_utils [c] (n:i64) (newprices:[c]f64) (Ax:i64) : ?[ns].[ns][n
     let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = eqb.dps.poly f ev0 param (f64.f32 0)
     in eqb.ctp_from_utils mp tr utils ev
 
+-- ==
+-- entry: test_ctp_deriv_ad
+-- input { 2i64 [100f64, 100f64] 2i64 }
+-- output {  [[[[0.0238f64, -0.0001f64, -0.0232f64, -0.0000f64, -0.0004f64], 
+--              [0.0238f64, -0.0001f64, -0.0232f64, -0.0000f64, -0.0004f64], 
+--              [0.0238f64, -0.0001f64, -0.0232f64, -0.0000f64, -0.0004f64],
+--              [0.0238f64, -0.0001f64, -0.0232f64, -0.0000f64, -0.0004f64],
+--              [0.0238f64, -0.0001f64, -0.0232f64, -0.0000f64, -0.0004f64]]], 
+--            [[[-0.0233f64, -0.0000f64, 0.0238f64, -0.0001f64, -0.0004f64], 
+--              [-0.0233f64, -0.0000f64, 0.0238f64, -0.0001f64, -0.0004f64], 
+--              [-0.0233f64, -0.0000f64, 0.0238f64, -0.0001f64, -0.0004f64],
+--              [-0.0233f64, -0.0000f64, 0.0238f64, -0.0001f64, -0.0004f64],
+--              [-0.0233f64, -0.0000f64, 0.0238f64, -0.0001f64, -0.0004f64]]]]}
+
 entry test_ctp_deriv_ad [c] (n:i64) (newprices:[c]f64) (Ax:i64) : ?[ns].[c][Ax-1][ns][ns]f64 =
     let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
     let mp = trm.set_newprices mp newprices

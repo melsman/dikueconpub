@@ -186,7 +186,6 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
 
         in dctp_dprices_from_du_dev mp tr utils ev du dev
 
-
     -- def ctp_dprice_via_utils_ad [n][c][Ax][ns][nd]
     --    (mp: trm.mp[n][c][Ax][ns][nd])
     --    (p: trm.prices[c][Ax])
