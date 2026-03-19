@@ -107,19 +107,21 @@ for t=1:nm;
     dccp=g_trmodel.dccp_dp(mp, s, ccp_t, dlogccp); 
 
     dctp=g_trmodel.dctp_dp(mp, s, F.notrade, dccp, delta_tau{t}, daccprob);
+    
 
 
     % calculate the type-specific car distributions
-    q_tau{t}=ergodic(ctp_tau{t}); 
+    [q_tau{t}, dq] =ergodic(ctp_tau{t},dctp); 
 
 end
 
-disp(dbellman)
-disp(dev);
-disp(dctp);
-disp(du);
+%disp(dbellman)
+%disp(dev);
+%disp(dctp);
+%disp(du);
 % disp(ctp_tau{t});
 % disp(dctp);
+disp(dq);
 
 % solve for equilibrium price
 % [sol]=equilibrium.solve(mp, s); % solve model in baseline

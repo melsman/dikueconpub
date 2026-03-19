@@ -11,8 +11,14 @@ mp0=trmodel.default_params;
 
 % Parameter adjustments (relative to defaults)
 mp0.ntypes = 2;
-mp0.ncartypes=4;
-mp0.abar=3;
+mp0.ncartypes=2;
+mp0.abar=4;
+
+n = mp0.ntypes;
+c = mp0.ncartypes;
+[I, J] = ndgrid(0:n-1, 0:c-1);
+u_0 = 5 + 2 * (I + J) / (n + c);
+mp0.u_0 = u_0;
 
 % populate mp with remaining fields and update model parameter dependencies
 mp = trmodel.setparams(mp0);

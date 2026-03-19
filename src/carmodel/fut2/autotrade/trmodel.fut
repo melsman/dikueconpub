@@ -527,7 +527,7 @@ module trmodel (R:real) : trmodel with t = R.t = {
         in map (R.+ s) (utils[:,nd-1])
 
       -- let v : [ns][nd]t =
-      --   ([keep] ++ trade ++ [purge] :> [nd][ns]t)
+      --   ([keep] ++ transpose trade ++ [purge] :> [nd][ns]t)
       --   |> transpose
 
       let v : *[ns][nd]t = tabulate_2d ns nd (\ _ _ -> R.i64 0)
