@@ -93,7 +93,7 @@ for t=1:nm;
     % state transition matrix
     ctp_tau{t}=delta_tau{t}*F.notrade; 
     
-    [du, d_scrap] = g_trmodel.du_dp(mp, s, 1, ccp_scrap_tau{t});
+    [du, dccp_scrap] = g_trmodel.du_dp(mp, s, 1, ccp_scrap_tau{t});
     dbellman = g_trmodel.dbellman(mp, s, ev_t, ccp_t, ccp_scrap_tau{t}, ctp_tau{t}, delta_tau{t}, du, daccprob, 'prices');
 
     dev=(eye(s.ns)-mp.bet*ctp_tau{t})\dbellman;
@@ -113,6 +113,8 @@ for t=1:nm;
     % calculate the type-specific car distributions
     [q_tau{t}, dq] =ergodic(ctp_tau{t},dctp); 
 
+    %ded=g_trmodel.ded(mp, s, ccp_tau, dccp, q_tau{t}, dq, ccp_scrap_tau{t}, dccp_scrap);
+
 end
 
 %disp(dbellman)
@@ -122,8 +124,14 @@ end
 % disp(ctp_tau{t});
 % disp(dctp);
 disp(dq);
-disp(ccp)
+disp(ccp_t);
 disp(dccp);
+disp(dctp);
+disp(dccp_scrap);
+
+dpsell=zeros(s.ns,s.np); 
+dpsell([s.is.car_ex_clunker{:}],:)=eye(s.np)*(1-mp.ptc_sale);
+disp(dpsell);
 
 % solve for equilibrium price
 % [sol]=equilibrium.solve(mp, s); % solve model in baseline

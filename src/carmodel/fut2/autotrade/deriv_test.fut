@@ -128,7 +128,6 @@ entry test_dev_prices [c] (n:i64) (newprices:[c]f64) (Ax:i64) : ?[ns].[c][Ax-1][
   let (ev, v) = trm.bellman0 mp utils tr ev
   let ctp = eqb.ctp_from_utils mp tr utils ev
   let ccp : [ns][nd]f64 = trm.ccp_tau mp v ev
-  let ccp = map (map (\x -> if f64.isnan x then f64.i64 0 else x)) ccp
   let dbellman = eqb.dbellman_prices_man ccp du
   in eqb.dev_fixed_point_dprice mp ctp dbellman
 

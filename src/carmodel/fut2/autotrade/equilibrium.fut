@@ -61,34 +61,27 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
     ------ Helper functions for derivatives ------
     ----------------------------------------------
 
-        def ctp_from_mp_p [n][c][Ax][ns][nd]
-        (mp: mp[n][c][Ax][ns][nd])
-        (p: trm.prices[c][Ax]) (tau:i64) (ev_s:trm.ev[ns]) : [ns][ns]t =
-        let utils : trm.utility [ns][nd] = trm.utility mp p tau
-        let tr = trm.age_transition mp
-        let (ev, v) = trm.bellman0 mp utils tr ev_s
-        let ccp : [ns][nd]t = trm.ccp_tau mp v ev
-        let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
-        let (delta, _, _) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
-        let ctp : [ns][ns]t = trm.ctp_tau tr delta
-        in ctp
+        def ctp_from_mp_p [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd])
+            (p: trm.prices[c][Ax]) (tau:i64) (ev_s:trm.ev[ns]) : [ns][ns]t =
+            let utils : trm.utility [ns][nd] = trm.utility mp p tau
+            let tr = trm.age_transition mp
+            let (ev, v) = trm.bellman0 mp utils tr ev_s
+            let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+            let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+            let (delta, _, _) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
+            let ctp : [ns][ns]t = trm.ctp_tau tr delta
+            in ctp
         
-    def ctp_from_utils [n][c][Ax][ns][nd]
-        (mp: trm.mp[n][c][Ax][ns][nd])
-        (tr: trm.transition[ns])
-        (utils: trm.utility[ns][nd])
-        (ev_s: trm.ev[ns]) : [ns][ns]t =
+    def ctp_from_utils [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) (tr: trm.transition[ns])
+        (utils: trm.utility[ns][nd])  (ev_s: trm.ev[ns]) : [ns][ns]t =
         let (ev, v) = trm.bellman0 mp utils tr ev_s
         let ccp : [ns][nd]t = trm.ccp_tau mp v ev
         let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
         let (delta, _, _) = trm.trade_transition mp ccp
         in trm.ctp_tau tr delta
 
-    def ccp_from_utils [n][c][Ax][ns][nd]
-        (mp: trm.mp[n][c][Ax][ns][nd])
-        (tr: trm.transition[ns])
-        (utils: trm.utility[ns][nd])
-        (ev_s: trm.ev[ns]) : [ns][nd]t =
+    def ccp_from_utils [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) (tr: trm.transition[ns])
+        (utils: trm.utility[ns][nd]) (ev_s: trm.ev[ns]) : [ns][nd]t =
         let (ev, v) = trm.bellman0 mp utils tr ev_s
         let ccp : [ns][nd]t = trm.ccp_tau mp v ev
         let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
@@ -144,7 +137,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
                     )
                 )
 
-    def ccp_scrap_dprice_man [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) p (tau:i64) : [c][Ax-1][ns]t =
+    def ccp_scrap_dprice_man [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) (p:trm.prices[c][Ax]) (tau:i64) : [c][Ax-1][ns]t =
         let mu = mp.mum[tau]
         let ccp_scrap_tau = trm.ccp_scrap_tau mp p tau
         in tabulate_2d c (Ax-1) (\cartype age ->
@@ -158,9 +151,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         )
 
 
-    def dbellman_prices_man [Ax][c][ns][nd]
-        (ccp : [ns][nd]t)
-        (du  : [c][Ax-1][ns][nd]t) : [c][Ax-1][ns]t =
+    def dbellman_prices_man [Ax][c][ns][nd] (ccp : [ns][nd]t) (du  : [c][Ax-1][ns][nd]t) : [c][Ax-1][ns]t =
         tabulate_2d c (Ax-1) (\cartype age ->
             tabulate ns (\s ->
             reduce (\i j -> R.(i+j)) (R.i64 0)
@@ -191,11 +182,8 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         in tabulate_2d c (Ax-1) (\cartype age ->
             jvp g (utils, ev) (du[cartype][age], dev[cartype][age]))
 
-    def ccp_dprice_full [n][c][Ax][ns][nd]
-        (mp: trm.mp[n][c][Ax][ns][nd])
-        (p: trm.prices[c][Ax])
-        (tau: i64)
-        (ev: trm.ev[ns])  : [c][Ax-1][ns][nd]t =
+    def ccp_dprice_full [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (p: trm.prices[c][Ax])
+        (tau: i64) (ev: trm.ev[ns])  : [c][Ax-1][ns][nd]t =
         let tr = trm.age_transition mp
         let utils : trm.utility[ns][nd] = trm.utility mp p tau
         let ctp : [ns][ns]t = ctp_from_utils mp tr utils ev
@@ -215,22 +203,14 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         in dccp_dprices_from_du_dev mp tr utils ev du dev
         
 
-    def dctp_dprices_from_du_dev [n][c][Ax][ns][nd]
-            (mp: trm.mp[n][c][Ax][ns][nd])
-            (tr: trm.transition[ns])
-            (utils: trm.utility[ns][nd])
-            (ev: trm.ev[ns])
-            (du: [c][Ax-1][ns][nd]t)
-            (dev: [c][Ax-1][ns]t) : [c][Ax-1][ns][ns]t =
+    def dctp_dprices_from_du_dev [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) (tr: trm.transition[ns]) (utils: trm.utility[ns][nd])
+            (ev: trm.ev[ns]) (du: [c][Ax-1][ns][nd]t) (dev: [c][Ax-1][ns]t) : [c][Ax-1][ns][ns]t =
         let g = \(u, e) -> ctp_from_utils mp tr u e
         in tabulate_2d c (Ax-1) (\cartype age ->
             jvp g (utils, ev) (du[cartype][age], dev[cartype][age]))
 
-    def ctp_dprice_full [n][c][Ax][ns][nd]
-        (mp: trm.mp[n][c][Ax][ns][nd])
-        (p: trm.prices[c][Ax])
-        (tau: i64)
-        (ev: trm.ev[ns])  : [c][Ax-1][ns][ns]t =
+    def ctp_dprice_full [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (p: trm.prices[c][Ax])
+        (tau: i64) (ev: trm.ev[ns])  : [c][Ax-1][ns][ns]t =
         let tr = trm.age_transition mp
         let utils : trm.utility[ns][nd] = trm.utility mp p tau
         let ctp : [ns][ns]t = ctp_from_utils mp tr utils ev
@@ -262,6 +242,58 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             in map (\i->res[i]) (iota ns)
         )
         in (erg, erg_dprice)
+
+
+    def ded_dprice [c][Ax][ns][nd] (ccp: [ns][nd]t) (dccp: [c][Ax-1][ns][nd]t)  (q: [ns]t)
+        (dq: [c][Ax-1][ns]t) (ccp_scrap: [ns]t) (dccp_scrap: [c][Ax-1][ns]t) : [c][Ax-1][c][Ax-1]t =
+
+        tabulate_2d c (Ax-1) (\m_ct m_age ->
+            let owned_car = m_ct*Ax + m_age
+            let buycol = 1 + m_ct*Ax + (m_age+1)
+            let keep_survive = R.(i64 1 - ccp[owned_car,0])
+            let no_scrap = R.(i64 1 - ccp_scrap[owned_car])
+
+            in tabulate_2d c (Ax-1) (\p_ct p_age ->
+
+                let dD =
+                    reduce (R.+) (R.i64 0)
+                        (tabulate ns (\s ->
+                            R.( q[s] * dccp[p_ct][p_age][s][buycol]
+                            + ccp[s][buycol] * dq[p_ct][p_age][s] )
+                            )
+                        )
+
+                let dED_supply_keep =
+                    R.(dccp[p_ct][p_age][owned_car][0] * no_scrap * q[owned_car])
+
+                let dED_supply_q =
+                    R.(i64 0 - keep_survive * no_scrap * dq[p_ct][p_age][owned_car])
+
+                let dED_supply_scrap =
+                    R.(keep_survive * dccp_scrap[p_ct][p_age][owned_car] * q[owned_car])
+
+                in R.(dD + dED_supply_keep + dED_supply_q + dED_supply_scrap)
+            )
+        )
+
+    def ded_dprice_tau [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (tau: i64) (ev:[ns]t) 
+        (v:[ns][nd]t) (p:trm.prices[c][Ax]) : [c][Ax-1][c][Ax-1]t =
+        let utils : trm.utility [ns][nd] = trm.utility mp p tau
+        let tr = trm.age_transition mp
+        let ctp = ctp_from_utils mp tr utils ev
+        let ccp_scrap = trm.ccp_scrap_tau mp p tau
+        let ccp = trm.ccp_tau mp v ev
+
+        let du = utility_dprice_man mp tau
+        let dbellman = dbellman_prices_man ccp du
+        let dev = dev_fixed_point_dprice mp ctp dbellman
+        let dctp = dctp_dprices_from_du_dev mp tr utils ev du dev
+        let dccp = dccp_dprices_from_du_dev mp tr utils ev du dev
+        let (erg, erg_dprice) = ergodic_with_dprice ctp dctp
+        let dccp_scrap = ccp_scrap_dprice_man mp p tau
+
+        in ded_dprice ccp dccp erg erg_dprice ccp_scrap dccp_scrap
+
 
     -- def ctp_dprice_via_utils_ad [n][c][Ax][ns][nd]
     --    (mp: trm.mp[n][c][Ax][ns][nd])
