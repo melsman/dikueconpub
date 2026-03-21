@@ -5,6 +5,19 @@ module trm = trmodel f64
 module eqb = equilibrium f64 trm
 
 -- ==
+-- entry: test_ccp_scrap_dprice_man
+-- input { 2i64 [100f64, 100f64] 2i64 }
+-- output {  [[[-0.00000001011f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64]], 
+--             [[0.0f64, 0.0f64, -0.00000001011f64, 0.0f64, 0.0004f64]]]}
+
+entry test_ccp_scrap_dprice_man [c] (n:i64) (newprices:[c]f64) (Ax:i64) : ?[ns].[c][Ax-1][ns]f64 =
+  let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
+  let mp = trm.set_newprices mp newprices
+  let p = trm.simple_prices mp 0.85
+  let tau = 0
+  in eqb.ccp_scrap_dprice_man mp p tau
+
+-- ==
 -- entry: test_ergodic_with_dprice
 -- input { 2i64 [100f64, 100f64] 2i64 }
 -- output {  [[[0.0238f64, -0.0001f64, -0.0232f64, -0.0000f64, -0.0004f64]], 

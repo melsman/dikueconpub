@@ -56,33 +56,12 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         )
         in map2 (\d s->R.(d-s)) demand supply
 
-    -------------------------------
-    ------ Derivatives - AD -------
-    -------------------------------
 
-    def price_basis [c][Ax] (cartype:i64) (age:i64) : trm.prices[c][Ax] =
-        tabulate_2d c Ax (\cartype' age' -> R.bool (cartype == cartype' && age == age'))
+    ----------------------------------------------
+    ------ Helper functions for derivatives ------
+    ----------------------------------------------
 
-    def utility_basis [ns][nd] (s:i64) (d:i64) : [ns][nd]t =
-        tabulate_2d ns nd (\s' d' -> R.bool (s == s' && d == d'))
-
-    ---- There is highly likely sparsity here that I am not taking advantage of. In particular,
-    ---- the Jacobian is likely very sparse, since a chance in price for a car will only affect the utility of consumers who own that car
-    ---- or buy that car
-    def utility_dprice_ad [n][c][Ax][ns][nd]
-        (mp: trm.mp[n][c][Ax][ns][nd])
-        (p: trm.prices[c][Ax])
-        (tau: i64)
-        : [c][Ax-1][ns][nd]t =
-        let f = \p' -> trm.utility mp p' tau
-        -- Note that the prices for age-zero cars are known, and thus not endogenous, so we only take the derivative with respect
-        -- to the other ages
-        let du =
-            tabulate_2d c (Ax-1) (\j a ->
-            jvp f p (price_basis j (a+1)))
-        in du
-
-    def ctp_from_mp_p [n][c][Ax][ns][nd]
+        def ctp_from_mp_p [n][c][Ax][ns][nd]
         (mp: mp[n][c][Ax][ns][nd])
         (p: trm.prices[c][Ax]) (tau:i64) (ev_s:trm.ev[ns]) : [ns][ns]t =
         let utils : trm.utility [ns][nd] = trm.utility mp p tau
@@ -115,13 +94,40 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
         in ccp
 
+    -------------------------------
+    ------ Derivatives - AD -------
+    -------------------------------
+
+    def price_basis [c][Ax] (cartype:i64) (age:i64) : trm.prices[c][Ax] =
+        tabulate_2d c Ax (\cartype' age' -> R.bool (cartype == cartype' && age == age'))
+
+    def utility_basis [ns][nd] (s:i64) (d:i64) : [ns][nd]t =
+        tabulate_2d ns nd (\s' d' -> R.bool (s == s' && d == d'))
+
+    ---- There is highly likely sparsity here that I am not taking advantage of. In particular,
+    ---- the Jacobian is likely very sparse, since a chance in price for a car will only affect the utility of consumers who own that car
+    ---- or buy that car
+    def utility_dprice_ad [n][c][Ax][ns][nd]
+        (mp: trm.mp[n][c][Ax][ns][nd])
+        (p: trm.prices[c][Ax])
+        (tau: i64)
+        : [c][Ax-1][ns][nd]t =
+        let f = \p' -> trm.utility mp p' tau
+        -- Note that the prices for age-zero cars are known, and thus not endogenous, so we only take the derivative with respect
+        -- to the other ages
+        let du =
+            tabulate_2d c (Ax-1) (\j a ->
+            jvp f p (price_basis j (a+1)))
+        in du
+
+
 
     --------------------------------
     ------ Derivaties - non-AD -----
     --------------------------------
 
     --- It doesn't seem like like utility of prices depend on the current price of the car - i.e. the derivative is linear.
-    --- Will need to modify this if I implement ptransport.
+    --- Will need to modify this if I implement ptransport and ptc_sale
     def utility_dprice_man [n][c][Ax][ns][nd]
             (mp: trm.mp[n][c][Ax][ns][nd])
             (tau: i64) : [c][Ax-1][ns][nd]t =
@@ -137,6 +143,20 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
                     in R.(row_val + col_val)
                     )
                 )
+
+    def ccp_scrap_dprice_man [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) p (tau:i64) : [c][Ax-1][ns]t =
+        let mu = mp.mum[tau]
+        let ccp_scrap_tau = trm.ccp_scrap_tau mp p tau
+        in tabulate_2d c (Ax-1) (\cartype age ->
+            let row = cartype*Ax+age
+            in tabulate ns (\state ->
+                if state!=row then R.i64 0
+                else
+                    let dev_scrap =  R.((i64 0-ccp_scrap_tau[state]*mu))
+                    in R.((i64 1-ccp_scrap_tau[state])*dev_scrap/mp.sigma_s)
+            )
+        )
+
 
     def dbellman_prices_man [Ax][c][ns][nd]
         (ccp : [ns][nd]t)
@@ -242,8 +262,6 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             in map (\i->res[i]) (iota ns)
         )
         in (erg, erg_dprice)
-
-
 
     -- def ctp_dprice_via_utils_ad [n][c][Ax][ns][nd]
     --    (mp: trm.mp[n][c][Ax][ns][nd])
