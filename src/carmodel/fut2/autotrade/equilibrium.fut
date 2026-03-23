@@ -38,39 +38,35 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let res' = lup.ols ap ed0
         in map (\i->res'[i]) (iota ns)
 
-    def ed_tau [n][c][Ax][ns][nd] (q_tau:[ns]t) (deltaK_diag:[ns]t) (deltaT_tau:[ns][ns]t) (_:mp[n][c][Ax][ns][nd]) (ccp_scrap_tau:[ns]t) : ?[np].[np]t = 
+    def ed_tau [n][c][Ax][ns][nd] (q_tau:[ns]t) (deltaK_diag:[ns]t) (deltaT_tau:[ns][ns]t) (_:mp[n][c][Ax][ns][nd]) (ccp_scrap_tau:[ns]t) : [c][Ax-1]t = 
         let deltaT_trans = transpose deltaT_tau
-        let demand = flatten (
-            tabulate_2d c (Ax-1) 
-                (\ct a-> let ind = ct*Ax+a
-                 in map2 (\x y->R.(x*y)) deltaT_trans[ind] q_tau|>reduce (R.+) (R.i64 0)
+        let demand = tabulate_2d c (Ax-1) (\ct a-> 
+                let ind = ct*Ax+a
+                in map2 (\x y->R.(x*y)) deltaT_trans[ind] q_tau|>reduce (R.+) (R.i64 0)
                 )
-            )
         let sell_p = map (\x->R.(i64 1-x)) deltaK_diag
         let no_scrap = map (\x->R.(i64 1-x)) ccp_scrap_tau
-        let supply = flatten (
-            tabulate_2d c (Ax-1)
-            (\ct a->let ind = ct*Ax+a
-             in R.(sell_p[ind]*no_scrap[ind]*q_tau[ind])
+        let supply = tabulate_2d c (Ax-1) (\ct a->
+            let ind = ct*Ax+a
+            in R.(sell_p[ind]*no_scrap[ind]*q_tau[ind])
             )
-        )
-        in map2 (\d s->R.(d-s)) demand supply
+        in map2 (\d s->map2 (\x y->R.(x-y)) d s) demand supply
 
 
     ----------------------------------------------
     ------ Helper functions for derivatives ------
     ----------------------------------------------
 
-        def ctp_from_mp_p [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd])
-            (p: trm.prices[c][Ax]) (tau:i64) (ev_s:trm.ev[ns]) : [ns][ns]t =
-            let utils : trm.utility [ns][nd] = trm.utility mp p tau
-            let tr = trm.age_transition mp
-            let (ev, v) = trm.bellman0 mp utils tr ev_s
-            let ccp : [ns][nd]t = trm.ccp_tau mp v ev
-            let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
-            let (delta, _, _) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
-            let ctp : [ns][ns]t = trm.ctp_tau tr delta
-            in ctp
+    def ctp_from_mp_p [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd])
+        (p: trm.prices[c][Ax]) (tau:i64) (ev_s:trm.ev[ns]) : [ns][ns]t =
+        let utils : trm.utility [ns][nd] = trm.utility mp p tau
+        let tr = trm.age_transition mp
+        let (ev, v) = trm.bellman0 mp utils tr ev_s
+        let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+        let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+        let (delta, _, _) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
+        let ctp : [ns][ns]t = trm.ctp_tau tr delta
+        in ctp
         
     def ctp_from_utils [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) (tr: trm.transition[ns])
         (utils: trm.utility[ns][nd])  (ev_s: trm.ev[ns]) : [ns][ns]t =
@@ -294,19 +290,9 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
 
         in ded_dprice ccp dccp erg erg_dprice ccp_scrap dccp_scrap
 
-
-    -- def ctp_dprice_via_utils_ad [n][c][Ax][ns][nd]
-    --    (mp: trm.mp[n][c][Ax][ns][nd])
-    --    (p: trm.prices[c][Ax])
-    --    (tau: i64)
-    --    (ev_s: trm.ev[ns])
-    --    : [c][Ax-1][ns][ns]t =
-    --    let tr = trm.age_transition mp
-    --    let utils = trm.utility mp p tau
-    --    let du_dp = utility_dprice_man mp tau
-    --    let g = \u -> ctp_from_utils mp tr u ev_s
-    --    in tabulate_2d c (Ax-1) (\cartype age ->
-    --        jvp g utils du_dp[cartype][age])
+    -------- Flattening functions for testing --------
+    def flatten_ded [c][Ax] (ded: [c][Ax-1][c][Ax-1]t) : [c*(Ax-1)][c*(Ax-1)]t =
+        map flatten (flatten ded)
         
     ---- test functions
      def utils_single [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[c][Ax]t) (tau:i64) : [ns][nd]t =
@@ -387,7 +373,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let (delta, deltaK_diag, deltaT) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
         let ctp : [ns][ns]t = trm.ctp_tau tr delta
         let q_tau : [ns]t = ergodic ctp
-        in ed_tau q_tau deltaK_diag deltaT mp ccp_scrap_tau
+        in ed_tau q_tau deltaK_diag deltaT mp ccp_scrap_tau|>flatten
 
     def edf_test [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[c][Ax]t) (sa_max:i64) : ?[np].[np]t  =
         let comp (tau:i64) : [ns]t =
@@ -410,7 +396,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             let (delta, deltaK_diag, deltaT) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
             let ctp : [ns][ns]t = trm.ctp_tau tr delta
             let q_tau : [ns]t = ergodic ctp
-            in ed_tau q_tau deltaK_diag deltaT mp ccp_scrap_tau
+            in ed_tau q_tau deltaK_diag deltaT mp ccp_scrap_tau|>flatten
         let edfs = map2 edf evs (iota n)
         let tw = trm.get_tw mp
         let edfs_scaled = map2 (\x w-> map (\y->R.(y*w)) x) edfs tw
