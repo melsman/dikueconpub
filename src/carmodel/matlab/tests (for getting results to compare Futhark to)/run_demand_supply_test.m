@@ -1,12 +1,3 @@
-% Test 4: demand and supply at initial prices p0 — compare to Futhark's diag_demand_supply_p0
-%
-% Futhark call:
-%   echo "2i64 1i64 25i64 20i64 0f64 [0.1f64, 0.3f64]" | ./run_equilibrium diag_demand_supply_p0
-%
-% This script computes demand and supply separately at the same initial prices
-% that Futhark uses (simple_prices with r=0.85, pnew=200), so we can detect
-% any index shifts in deltaT.
-
 addpath('matlabinclude');
 addpath('autotrade');
 addpath('..');
@@ -25,8 +16,6 @@ mp = trmodel.update_mp(mp);
 s = trmodel.index(mp);
 
 %% Initial prices — match Futhark's simple_prices(mp, r=0.85) with pnew=200
-% Futhark: p[ct][a] = pnew * r^a for a=1..Ax-1 (used cars, 0-indexed age)
-% Matlab:  p(s.ip{j}) = prices for car type j, ages 1..abar-1
 p0 = 200 * 0.85 .^ (1:s.np)';   % s.np = abar_j0{1}-1 = 24
 
 %% Initialize ev0 global (as done in equilibrium.solve_once)
