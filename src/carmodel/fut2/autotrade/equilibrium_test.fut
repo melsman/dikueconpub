@@ -16,6 +16,22 @@ module eqb = equilibrium f64 trm
 entry test_ergodic [ns] (ccp:[ns][ns]f64) : [ns]f64 =
     eqb.ergodic ccp
 
+entry test_ergodic_dist [c][n] (mum:[n]f64) (newprices:[c]f64) (Ax:i64) (acc0:f64) : ?[ns].[ns]f64 =
+    let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
+    let mp = trm.set_newprices mp newprices
+    let mp = trm.set_mum mum mp
+    let mp = trm.set_acc_0 (replicate c acc0) mp
+    let p = trm.simple_prices mp 0.85
+    let tau = 0
+    let utils : trm.utility [ns][nd] = trm.utility mp p tau
+    let tr = trm.age_transition mp
+    let ev0 = trm.ev0 mp
+    let f = trm.bellmanJ mp utils tr
+    let param = eqb.dps.default
+    let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = eqb.dps.poly f ev0 param (f64.f32 0)
+    let ctp = eqb.ctp_from_utils mp tr utils ev
+    in eqb.ergodic ctp
+
 -- ==
 -- entry: test_utils_single 
 -- input {2i64 2i64 2i64 }

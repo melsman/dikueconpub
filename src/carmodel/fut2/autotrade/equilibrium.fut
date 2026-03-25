@@ -38,9 +38,9 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let res' = lup.ols ap ed0
         in map (\i->res'[i]) (iota ns)
 
-    def ed_tau [n][c][Ax][ns][nd] (q_tau:[ns]t) (deltaK_diag:[ns]t) (deltaT_tau:[ns][ns]t) (_:mp[n][c][Ax][ns][nd]) (ccp_scrap_tau:[ns]t) : [c][Ax-1]t = 
+    def demand_supply_tau [n][c][Ax][ns][nd] (q_tau:[ns]t) (deltaK_diag:[ns]t) (deltaT_tau:[ns][ns]t) (_:mp[n][c][Ax][ns][nd]) (ccp_scrap_tau:[ns]t) : ([c][Ax-1]t, [c][Ax-1]t) =
         let deltaT_trans = transpose deltaT_tau
-        let demand = tabulate_2d c (Ax-1) (\ct a-> 
+        let demand = tabulate_2d c (Ax-1) (\ct a->
                 let ind = ct*Ax+a
                 in map2 (\x y->R.(x*y)) deltaT_trans[ind] q_tau|>reduce (R.+) (R.i64 0)
                 )
@@ -50,7 +50,11 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             let ind = ct*Ax+a
             in R.(sell_p[ind]*no_scrap[ind]*q_tau[ind])
             )
-        in map2 (\d s->map2 (\x y->R.(x-y)) d s) demand supply
+        in (demand, supply)
+
+    def ed_tau [n][c][Ax][ns][nd] (q_tau:[ns]t) (deltaK_diag:[ns]t) (deltaT_tau:[ns][ns]t) (mp:mp[n][c][Ax][ns][nd]) (ccp_scrap_tau:[ns]t) : [c][Ax-1]t =
+        let (demand, supply) = demand_supply_tau q_tau deltaK_diag deltaT_tau mp ccp_scrap_tau
+        in map2 (map2 (\x y->R.(x-y))) demand supply
 
 
     ----------------------------------------------
@@ -293,7 +297,46 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
     -------- Flattening functions for testing --------
     def flatten_ded [c][Ax] (ded: [c][Ax-1][c][Ax-1]t) : [c*(Ax-1)][c*(Ax-1)]t =
         map flatten (flatten ded)
-        
+
+    -------- Function from getting ed and ed_dprice from mp, p and sa_max --------
+    def ed_ded_price_all [n][c][Ax][ns][nd] (mp:trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (p:trm.prices[c][Ax]) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t) =
+        let sol_evs (tau:i64) : ([ns]t, [ns][nd]t) =
+            let utils : trm.utility [ns][nd] = trm.utility mp p tau
+            let tr = trm.age_transition mp
+            let ev0 = trm.ev0 mp
+            let f = trm.bellmanJ mp utils tr
+            let param = dps.default
+            let param = param with sa_max = sa_max
+            let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.i64 0)
+            let (_, v) = trm.bellman0 mp utils tr ev
+            in (ev, v)
+
+        let evs = #[sequential_outer] map sol_evs (iota n)
+        let deds = #[sequential_outer] map2 (\evs tau -> 
+            let (ev, v) = evs
+            in ded_dprice_tau mp tau ev v p) evs (iota n)
+
+
+        let deds : [n][c][Ax-1][c][Ax-1]t = map2 (\ded tw -> map (map (map (map (\x -> R.(x * tw))))) ded) deds mp.tw
+        let zeroes : [c][Ax-1][c][Ax-1]t = tabulate_2d c (Ax-1) (\_ _ -> replicate c (replicate (Ax-1) (R.i64 0)))
+        let ded = reduce (map2 (map2 (map2 (map2 (\x y -> R.(x + y)))))) zeroes deds
+
+        let edf (evs:([ns]t, [ns][nd]t)) (tau:i64) =
+            let (ev, v) = evs
+            let tr = trm.age_transition mp
+            let ccp_scrap_tau = trm.ccp_scrap_tau mp p tau
+            let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+            let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+            let (delta, deltaK_diag, deltaT) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
+            let ctp : [ns][ns]t = trm.ctp_tau tr delta
+            let q_tau : [ns]t = ergodic ctp
+            in ed_tau q_tau deltaK_diag deltaT mp ccp_scrap_tau
+
+        let edfs = map2 edf evs (iota n)
+        let edfs_scaled = map2 (\x w -> map (map (\y -> R.(y * w))) x) edfs mp.tw |> reduce (map2 (map2 (\x y -> R.(x + y)))) (replicate c (replicate (Ax-1) (R.i64 0)))
+
+        in (edfs_scaled, ded)
+
     ---- test functions
      def utils_single [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (p:[c][Ax]t) (tau:i64) : [ns][nd]t =
         let utils : trm.utility [ns][nd] = trm.utility mp p tau
@@ -401,4 +444,36 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let tw = trm.get_tw mp
         let edfs_scaled = map2 (\x w-> map (\y->R.(y*w)) x) edfs tw
         in edfs_scaled|>reduce (map2 (\x y->R.(x+y))) (replicate (c*(Ax-1)) (R.i64 0))
+
+    -- Returns tw-weighted demand and supply separately, for diagnosing whether
+    -- demand[ct][a] and supply[ct][a] refer to the same car-age market.
+    def demand_supply_all [n][c][Ax][ns][nd] (mp:trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (p:trm.prices[c][Ax]) : ([c][Ax-1]t, [c][Ax-1]t) =
+        let sol_evs (tau:i64) : ([ns]t, [ns][nd]t) =
+            let utils : trm.utility [ns][nd] = trm.utility mp p tau
+            let tr = trm.age_transition mp
+            let ev0 = trm.ev0 mp
+            let f = trm.bellmanJ mp utils tr
+            let param = dps.default with sa_max = sa_max
+            let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.i64 0)
+            let (_, v) = trm.bellman0 mp utils tr ev
+            in (ev, v)
+        let evs = #[sequential_outer] map sol_evs (iota n)
+        let dsf (evs:([ns]t, [ns][nd]t)) (tau:i64) =
+            let (ev, v) = evs
+            let tr = trm.age_transition mp
+            let ccp_scrap_tau = trm.ccp_scrap_tau mp p tau
+            let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+            let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+            let (delta, deltaK_diag, deltaT) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
+            let ctp : [ns][ns]t = trm.ctp_tau tr delta
+            let q_tau : [ns]t = ergodic ctp
+            in demand_supply_tau q_tau deltaK_diag deltaT mp ccp_scrap_tau
+        let ds_per_type = map2 dsf evs (iota n)
+        let zero : [c][Ax-1]t = replicate c (replicate (Ax-1) (R.i64 0))
+        let (demands, supplies) = unzip ds_per_type
+        let demand = map2 (\d tw -> map (map (\x -> R.(x * tw))) d) demands mp.tw
+                     |> reduce (map2 (map2 (\x y -> R.(x + y)))) zero
+        let supply = map2 (\s tw -> map (map (\x -> R.(x * tw))) s) supplies mp.tw
+                     |> reduce (map2 (map2 (\x y -> R.(x + y)))) zero
+        in (demand, supply)
 }

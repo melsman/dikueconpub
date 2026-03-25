@@ -14,7 +14,7 @@ entry test_edf_deriv [c] (n:i64) (newprices:[c]f64) (Ax:i64) : [c][Ax-1][c][Ax-1
     let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
     let mp = trm.set_newprices mp newprices
     let p = trm.simple_prices mp 0.85
-
+  
     let deriv_ta (tau:i64) : [c][Ax-1][c][Ax-1]f64 =
       let utils : trm.utility [ns][nd] = trm.utility mp p tau
       let tr = trm.age_transition mp

@@ -67,6 +67,9 @@ module type trmodel = {
   val set_transcost [n][c][Ax][ns][nd] : t -> mp[n][c][Ax][ns][nd] ->
                                           mp[n][c][Ax][ns][nd]
 
+  val set_mum [n][c][Ax][ns][nd] : [n]t -> mp[n][c][Ax][ns][nd] ->
+                                          mp[n][c][Ax][ns][nd]
+
   type consumertype = i64
 
   -- model getters
@@ -242,6 +245,10 @@ module trmodel (R:real) : trmodel with t = R.t = {
   def set_transcost [n][c][Ax][ns][nd] (transcost:t)
               (mp:mp [n][c][Ax][ns][nd]) : mp [n][c][Ax][ns][nd] =
     mp with transcost=transcost
+
+  def set_mum [n][c][Ax][ns][nd] (mum:[n]t)
+              (mp:mp [n][c][Ax][ns][nd]) : mp [n][c][Ax][ns][nd] =
+    mp with mum=mum
 
   type consumertype = i64
 
@@ -469,7 +476,7 @@ module trmodel (R:real) : trmodel with t = R.t = {
     let (acc_mats, accs) :  (acc_prob_mat[ns], acc_prob[ns]) = acc_prob_mat mp
     let vals = map (\x->R.(i64 1 - x)) accs
     in {trade = sp.diag vals,
-        notrade = sp.sparse ns ns (zip3 (iota ns) next_keep (replicate ns (R.i32 1))),
+        notrade = sp.sparse ns ns (zip3 (iota ns) next_keep vals),
         acc = acc_mats}
 
   type ev[ns] = [ns]t
