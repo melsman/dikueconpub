@@ -25,6 +25,92 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
          h_tau         : [n][ns]t       -- post-trade equilibrium holdings for all consumer types
         }
     
+    ------------------------------------------------
+    ------- Social planner functions ---------------
+    ------------------------------------------------
+
+    def bellman_spp_with_deriv_p [Axb][n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) (tau: i64) (car: i64) (V:[Axb]t)
+                                                                                            : ([Axb]t, [Axb][Axb]t, [Axb]i64) =
+        let end = Axb - 1
+        let apr : [Axb]t = tabulate Axb (\a -> trm.acc_prob_j mp (i32.i64 a) (i32.i64 car) (i32.i64 Axb))
+        -- Utility from replacing with a new car (age 0)
+        let urep : t = R.(trm.u_car mp tau {cartype=car, age=0} - mp.mum[tau] * (mp.pnew[car] - mp.pscrap[car]))
+        -- Utility from keeping a car of age a, for a=0..end-1.
+        let ukeep : [Axb-1]t = tabulate (Axb-1) (\a -> trm.u_car mp tau {cartype=car, age=a})
+        -- Value of replacement.
+        let vrep : t = R.(urep + mp.bet * ((i64 1 - apr[0]) * V[1] + apr[0] * V[end]))
+        -- Value of keeping age-a car.
+        let vkeep : [Axb-1]t = tabulate (Axb-1) (\a -> 
+                let a_next = a+1
+                in R.(ukeep[a] + mp.bet * ((i64 1 - apr[a]) * V[a_next] + apr[a] * V[end]))
+            )
+
+        -- Updated Bellman value.
+        let Vnew : [Axb]t =
+            tabulate Axb (\a ->
+                if a == end then vrep
+                else R.max vrep vkeep[a]
+        )
+        -- Optimal replacement indicator:
+        -- P[a] = 1 if replace, 0 if keep.
+        let P : [Axb]i64 =
+            tabulate Axb (\a ->
+                if a == end then 1
+                else i64.bool R.(vrep > vkeep[a])
+            )
+
+        -- Transition matrix
+        let tpm : [Axb][Axb]t =
+            tabulate_2d Axb Axb (\i j ->
+            let Pi = R.i64 P[i]
+            let diag = if (i < end && i+1==j) then R.((i64 1-Pi)*(i64 1-apr[i])) else R.i64 0
+            let to_end = if j==end then R.(Pi*apr[0]+(i64 1-Pi)*apr[i]) else R.i64 0
+            let to_age1 = if j==1 then R.(Pi*(i64 1 - apr[0])) else R.i64 0
+            in R.(diag + to_end + to_age1)
+            )
+
+        let dV : [Axb][Axb]t = map (map (R.* mp.bet)) tpm
+        in (Vnew, dV, P)
+
+    def bellman_spp_with_deriv [Axb][n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) (tau: i64) (car: i64) (V:[Axb]t) : ([Axb]t, [Axb][Axb]t) =
+        let (Vnew, dv, _) =  bellman_spp_with_deriv_p mp tau car V
+        in (Vnew, dv)
+    
+    def solve_spp_single [Axb][n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (tau:i64) (car:i64) (V0:[Axb]t) : ([Axb]t) =
+        let param = dps.default
+        let f = bellman_spp_with_deriv mp tau car
+        let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f V0 param (mp.bet)
+        in ev
+    
+    ----- Note that this is to some extent a combination of spp.solve_spp and equilibrium.price_init, in 
+    ----- particular since some changes had to be made to prevent irregular parallelism.
+    def spp_price_solve [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (Axb:i64) : [c][Ax]t =
+        let V0 = replicate Axb (R.i64 0)
+        let Vs = #[sequential_outer] tabulate_2d n c (\t ct -> solve_spp_single mp t ct V0)
+        let policies = tabulate_2d n c  (\t ct ->
+            let (_, _, P) = bellman_spp_with_deriv_p mp t ct Vs[t][ct]
+            in P
+        )
+        let abar_spp = tabulate_2d n c (\t ct->
+            let first_replace_age = reduce (i64.min) Axb (map (\j-> if policies[t][ct][j]==1 then j else Axb) (iota (Axb-1)))
+            in if first_replace_age == Axb then Ax else first_replace_age
+        )
+        let p_spp = tabulate_3d n c Axb (\t ct a ->
+            R.(mp.pnew[ct]-(Vs[t][ct][0]-Vs[t][ct][a])/mp.mum[t])
+        )
+        let abar_and_tau_j = tabulate c (\ct ->
+            let tau_j = reduce (\tc tn-> if abar_spp[tn][ct]>abar_spp[tc][ct] then tn else tc) 0 (iota n)
+            in (abar_spp[tau_j][ct], tau_j)
+        )
+        let initial_prices = tabulate_2d c Ax (\ct a->
+            let (abar, t) = abar_and_tau_j[ct]
+            in if a==0 then mp.pnew[ct]
+            else if a>=abar then mp.pscrap[ct]
+            else p_spp[t][ct][a]
+        )
+        in initial_prices
+
+
 
     --- ergodic: finds the invariant distribution for an NxN Markov transition probability, ccp
     --- inputs

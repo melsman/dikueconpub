@@ -117,7 +117,7 @@ for t=1:nm;
 
 end
 
-disp(q_tau{1});
+%disp(q_tau{1});
 %disp(dbellman)
 %disp(dev);
 %disp(dctp);
@@ -130,8 +130,8 @@ disp(q_tau{1});
 %disp(dctp);
 %disp(dccp_scrap);
 
-dpsell=zeros(s.ns,s.np); 
-dpsell([s.is.car_ex_clunker{:}],:)=eye(s.np)*(1-mp.ptc_sale);
+%dpsell=zeros(s.ns,s.np); 
+%dpsell([s.is.car_ex_clunker{:}],:)=eye(s.np)*(1-mp.ptc_sale);
 %disp(dpsell);
 
 % solve for equilibrium price

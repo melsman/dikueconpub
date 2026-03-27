@@ -85,7 +85,8 @@ for t=1:nm;
     ev_poly(:,t)= dpsolver.poly(bellman, ev_t, ap, mp.bet);
 
 end
-
+mp=trmodel.update_mp(mp);
+s =trmodel.index(mp);
 [ed, ded, sol]=equilibrium.edf(mp, s, p);
 disp(ded);
 

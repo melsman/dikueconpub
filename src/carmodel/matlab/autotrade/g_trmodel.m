@@ -178,7 +178,6 @@ methods (Static)
         dbellman(:,idx)=g_trmodel.dbellman(mp, s, ev, ccp, ccp_scrap, ctp, delta, du(:,:,idx), daccprob(:,idx), parameter_types{k}); 
       end
     end
-    
     dev=(eye(s.ns)-mp.bet*ctp)\dbellman;
         
     % calculate the gradient of the choice specific value function

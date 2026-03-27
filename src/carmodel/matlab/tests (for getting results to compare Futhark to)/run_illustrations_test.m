@@ -15,6 +15,10 @@ mp = setparams.default(); % parameters used for illustration
 mp.ntypes = 2;
 mp.ncartypes=1; % switch to 1 car type
 mp.lbl_cartypes = {' '}; % no label for the only car
+abar = 5;
+mp.abar_j0 = {abar,abar};
+mp = trmodel.update_mp(mp);
+
 s = trmodel.index(mp);
 
 % 1. Normal transaction cost

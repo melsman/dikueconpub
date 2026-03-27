@@ -4,6 +4,14 @@ import "trmodel"
 module trm = trmodel f64
 module eqb = equilibrium f64 trm
 
+entry test_spp_price_solve [n][c] (mum:[n]f64) (newprices:[c]f64) (Ax:i64) (acc0:f64) (Axb:i64) : [c][Ax]f64 =
+    let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
+    let mp = trm.set_newprices mp newprices
+    let mp = trm.set_mum mum mp
+    let mp = trm.set_acc_0 (replicate c acc0) mp
+    in eqb.spp_price_solve mp Axb
+
+
 -- ==
 -- entry: test_ergodic
 -- input {[ [0.4953f64, 0.0009f64, 0.4953f64, 0.0005f64, 0.0081f64],

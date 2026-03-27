@@ -84,7 +84,7 @@ module type trmodel = {
   -- accident probabilities
   type acc_prob[ns] = [ns]t
   type~  acc_prob_mat [ns] -- = sr.mat[ns][ns]
-  val acc_prob_j [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> i32 -> i32 -> t
+  val acc_prob_j [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> i32 -> i32 -> i32 -> t
   val acc_prob [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> acc_prob[ns]
   val acc_prob_mat [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> (acc_prob_mat[ns], acc_prob[ns])
   val dense_acc_prob_mat [ns] : acc_prob_mat[ns] -> [ns][ns]t -- for testing purposes
@@ -94,7 +94,20 @@ module type trmodel = {
   val ccp_scrap_tau   [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> prices[c][Ax]
                                           -> consumertype -> [ns]t
 
+  -- Carprices
+  type car = {cartype:i64, age:i64}
+  type state = #NoCar | #Car car
+  type decision = #Keep | #Purge | #Trade car
+
+  val carprice_sell [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> prices[c][Ax] -> state -> t
+  val carprice_buy [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> prices[c][Ax] -> decision -> t
+
+  val ev_scrap [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> prices[c][Ax]
+                                    -> consumertype -> state -> t
+
   -- utilities of transitions
+  val u_car [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> i64 -> car -> t
+
   type utility [ns][nd] = [ns][nd]t
   val utility        [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> prices[c][Ax]
                                           -> consumertype -> utility[ns][nd]
@@ -133,16 +146,6 @@ module type trmodel = {
   -- for testing:
   val transition_notrade [ns] : transition[ns] -> [ns][ns]t
   val transition_trade   [ns] : transition[ns] -> [ns][ns]t
-
-  type car = {cartype:i64, age:i64}
-  type state = #NoCar | #Car car
-  type decision = #Keep | #Purge | #Trade car
-
-  val carprice_sell [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> prices[c][Ax] -> state -> t
-  val carprice_buy [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> prices[c][Ax] -> decision -> t
-
-  val ev_scrap [n][c][Ax][ns][nd] : mp[n][c][Ax][ns][nd] -> prices[c][Ax]
-                                    -> consumertype -> state -> t
 
   -- ctp function
   val ctp_tau [ns] : transition[ns]-> [ns][ns]t -> [ns][ns]t
@@ -343,11 +346,16 @@ module trmodel (R:real) : trmodel with t = R.t = {
   type~ acc_prob_mat [ns] = sp.mat[ns][ns]
   type acc_prob[ns] = [ns]t
 
-  --------- 
+
+
   --------- Note that states are in order (car 1 age 0, ..., car c age ax-1, abar)
-  def acc_prob_j [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (a:i32) (ct:i32) : t =
-    let mod = R.i32(1-a%2)
-    in R.(mp.acc_0[ct]+mp.acc_a[ct]*(R.i32 a)+mp.acc_even[ct]*mod)
+  def acc_prob_j [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (a:i32) (ct:i32) (Axb:i32) : t =
+    if a>=Axb then 
+      R.i32 1 
+    else 
+      let mod = R.i32(1-a%2)
+      let exponent = R.(mp.acc_0[ct]+mp.acc_a[ct]*(R.i32 a)+mp.acc_even[ct]*mod)
+      in R.((i64 1)/((i64 1)+exp((i64 0) - exponent)))
 
   def acc_prob [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) : acc_prob[ns] =
     let accs =

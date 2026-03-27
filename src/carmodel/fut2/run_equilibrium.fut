@@ -23,17 +23,20 @@ module mk_run (R:real) = {
     let dp       = lu.ols blksz ded_flat ed_flat
     let dp2d : [c][Ax-1]t = unflatten dp
 
-    -- Ensure prices do not fall below pscrap.
+    -- Global alpha: largest step keeping all prices >= pscrap, capped at damp
+    let alpha =
+      tabulate_2d c (Ax-1) (\ct a ->
+        let a' = a + 1
+        in if R.(dp2d[ct][a] > i64 0)
+           then R.((p[ct][a'] - mp.pscrap[ct]) / dp2d[ct][a])
+           else R.highest)
+      |> flatten |> reduce R.min damp
+
     let p_new : [c][Ax]t =
       tabulate_2d c Ax (\ct a ->
         if a == 0 then p[ct][0]
-        else let a' = a - 1
-             in R.(max (p[ct][a] - damp * dp2d[ct][a']) mp.pscrap[ct]))
-    let max_dp =
-      tabulate_2d c (Ax-1) (\ct a ->
-        let a' = a + 1
-        in R.(abs (p_new[ct][a'] - p[ct][a'])))
-      |> flatten |> reduce R.max (R.i64 0)
+        else let a' = a - 1 in R.(p[ct][a] - alpha * dp2d[ct][a']))
+    let max_dp = reduce R.max (R.i64 0) (map R.abs (map (\x -> R.(alpha * x)) dp))
     in (p_new, ed2d, max_dp)
 
   def newton [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (p0: trm.prices[c][Ax]) (sa_max:i64) (damp:t) (tol:t) (max_iter:i64)

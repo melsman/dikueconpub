@@ -30,6 +30,28 @@ entry test_edf_deriv [c] (n:i64) (newprices:[c]f64) (Ax:i64) : [c][Ax-1][c][Ax-1
     let edfs : [n][c][Ax-1][c][Ax-1]f64 = map2 (\edf tw -> map (map (map (map (\x -> f64.(x * tw))))) edf) edfs mp.tw
     in reduce (map2 (map2 (map2 (map2 (\x y -> f64.(x + y)))))) zeroes edfs
 
+--- No input here, just for testing.
+  entry test_edf_deriv_with_mum [n][c] (mum:[n]f64) (newprices:[c]f64) (Ax:i64) : [c][Ax-1][c][Ax-1]f64 =
+    let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
+    let mp = trm.set_newprices mp newprices
+    let mp = trm.set_mum mum mp
+    let p = trm.simple_prices mp 0.85
+  
+    let deriv_ta (tau:i64) : [c][Ax-1][c][Ax-1]f64 =
+      let utils : trm.utility [ns][nd] = trm.utility mp p tau
+      let tr = trm.age_transition mp
+      let ev0 = trm.ev0 mp
+      let f = trm.bellmanJ mp utils tr
+      let param = eqb.dps.default
+      let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = eqb.dps.poly f ev0 param (f64.f32 0)
+      let (ev, v) = trm.bellman0 mp utils tr ev
+      in eqb.ded_dprice_tau mp tau ev v p
+
+    let zeroes : [c][Ax-1][c][Ax-1]f64 = tabulate_2d c (Ax-1) (\_ _ -> replicate c (replicate (Ax-1) 0.0f64))
+    let edfs : [n][c][Ax-1][c][Ax-1]f64 = #[sequential_outer] map deriv_ta (iota n)
+    let edfs : [n][c][Ax-1][c][Ax-1]f64 = map2 (\edf tw -> map (map (map (map (\x -> f64.(x * tw))))) edf) edfs mp.tw
+    in reduce (map2 (map2 (map2 (map2 (\x y -> f64.(x + y)))))) zeroes edfs
+
 -- ==
 -- entry: test_edf_tau_deriv
 -- input { 2i64 [100f64, 100f64] 2i64 }
