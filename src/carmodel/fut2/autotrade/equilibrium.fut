@@ -209,6 +209,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
     --- Will need to modify this if I implement ptransport and ptc_sale
     def utility_dprice_man [n][c][Ax][ns][nd]
             (mp: trm.mp[n][c][Ax][ns][nd])
+            (ccp_scrap: [ns]t)
             (tau: i64) : [c][Ax-1][ns][nd]t =
         let mu = mp.mum[tau]
         in tabulate_2d c (Ax-1) (\cartype age ->
@@ -216,8 +217,10 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             --- The first 1 added in col is because the first decision is keeping, and the reason (age+1) is used
             --- is because that in decisions, cars range from age 0 to Ax-1, but in states, they range from 1 + Ax.
             let col = 1 + cartype*Ax + (age+1)
+            --- sell-price enters utility both directly (mum*psell) and via ev_scrap (whose derivative is -mum*ccp_scrap).
+            let sell_mu = R.(mu * (i64 1 - ccp_scrap[row]))
             in tabulate_2d ns nd (\s d ->
-                    let row_val = (if ((s == row) && not (d == 0)) then mu else R.i64 0)
+                    let row_val = (if ((s == row) && not (d == 0)) then sell_mu else R.i64 0)
                     let col_val = (if d == col then R.(i64 0-mu) else R.i64 0)
                     in R.(row_val + col_val)
                     )
@@ -273,9 +276,10 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let tr = trm.age_transition mp
         let utils : trm.utility[ns][nd] = trm.utility mp p tau
         let ctp : [ns][ns]t = ctp_from_utils mp tr utils ev
+        let ccp_scrap = trm.ccp_scrap_tau mp p tau
 
         let du : [c][Ax-1][ns][nd]t =
-            utility_dprice_man mp tau
+            utility_dprice_man mp ccp_scrap tau
 
         let (ev1, v) = trm.bellman0 mp utils tr ev
         let ccp : [ns][nd]t = trm.ccp_tau mp v ev1
@@ -300,9 +304,10 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let tr = trm.age_transition mp
         let utils : trm.utility[ns][nd] = trm.utility mp p tau
         let ctp : [ns][ns]t = ctp_from_utils mp tr utils ev
+        let ccp_scrap = trm.ccp_scrap_tau mp p tau
 
         let du : [c][Ax-1][ns][nd]t =
-            utility_dprice_man mp tau
+            utility_dprice_man mp ccp_scrap tau
 
         let (ev1, v) = trm.bellman0 mp utils tr ev
         let ccp : [ns][nd]t = trm.ccp_tau mp v ev1
@@ -370,7 +375,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let ccp_scrap = trm.ccp_scrap_tau mp p tau
         let ccp = trm.ccp_tau mp v ev
 
-        let du = utility_dprice_man mp tau
+        let du = utility_dprice_man mp ccp_scrap tau
         let dbellman = dbellman_prices_man ccp du
         let dev = dev_fixed_point_dprice mp ctp dbellman
         let dctp = dctp_dprices_from_du_dev mp tr utils ev du dev

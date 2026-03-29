@@ -255,5 +255,7 @@ entry test_utility_dprice_ad [c] (n:i64) (newprices:[c]f64) (Ax:i64) : ?[ns][nd]
 entry test_utility_dprice_man [c] (n:i64) (newprices:[c]f64) (Ax:i64) : ?[ns][nd].[c][Ax-1][ns][nd]f64 =
   let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
   let mp = trm.set_newprices mp newprices
+  let p = trm.simple_prices mp 0.85
   let tau = 0
-  in eqb.utility_dprice_man mp tau
+  let ccp_scrap_tau = trm.ccp_scrap_tau mp p tau
+  in eqb.utility_dprice_man mp ccp_scrap_tau tau
