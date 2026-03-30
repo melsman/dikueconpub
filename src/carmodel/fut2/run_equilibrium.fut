@@ -23,20 +23,13 @@ module mk_run (R:real) = {
     let dp       = lu.ols blksz ded_flat ed_flat
     let dp2d : [c][Ax-1]t = unflatten dp
 
-    -- Global alpha: largest step keeping all prices >= pscrap, capped at damp
-    let alpha =
-      tabulate_2d c (Ax-1) (\ct a ->
-        let a' = a + 1
-        in if R.(dp2d[ct][a] > i64 0)
-           then R.((p[ct][a'] - mp.pscrap[ct]) / dp2d[ct][a])
-           else R.highest)
-      |> flatten |> reduce R.min damp
-
+    -- Ensure that prices do not go below scrap value.
     let p_new : [c][Ax]t =
       tabulate_2d c Ax (\ct a ->
         if a == 0 then p[ct][0]
-        else let a' = a - 1 in R.(p[ct][a] - alpha * dp2d[ct][a']))
-    let max_dp = reduce R.max (R.i64 0) (map R.abs (map (\x -> R.(alpha * x)) dp))
+        else let a' = a - 1
+             in R.(max (p[ct][a] - damp * dp2d[ct][a']) mp.pscrap[ct]))
+    let max_dp = reduce R.max (R.i64 0) (map R.abs dp)
     in (p_new, ed2d, max_dp)
 
   def newton [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (p0: trm.prices[c][Ax]) (sa_max:i64) (damp:t) (tol:t) (max_iter:i64)
@@ -53,16 +46,6 @@ module mk_run (R:real) = {
 module R = f64
 module r = mk_run R
 
-entry solve (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.t) (acc0:R.t) (damp:R.t) (tol:R.t) (max_iter:i64): ([c][Ax]f64, [c][Ax-1]f64, f64, i64, bool) =
-  let [ns][nd] mp : r.trm.mp [n][c][Ax][ns][nd] = r.trm.mk n c Ax
-  let mp = r.trm.set_newprices mp (replicate c (R.i64 200))
-  let mp = r.trm.set_acc_0 (replicate c acc0) mp
-  let mp = r.trm.set_transcost transcost mp
-  let mp = r.trm.set_mum mum mp
-  let p0 = r.trm.simple_prices mp (R.f32 0.85)
-  let (p, ed, max_dp, iter, conv) = r.newton mp p0 sa_max damp tol max_iter
-  in (p, ed, max_dp, iter, conv)
-
 --- Returns ed and flattened ded at the initial prices, before any Newton step.
 entry test_ed_ded (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t)
     : ([][]R.t, [][][]R.t) =
@@ -73,17 +56,22 @@ entry test_ed_ded (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t)
   let (ed, ded) = r.eqb.ed_ded_price_all mp sa_max p0
   in (ed, map flatten ded)
 
---- Returns dp (Newton step) and updated prices from a single step.
-entry test_step (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.t)
-    : ([][]R.t, [][]R.t) =
+--- Returns p0, ed, ded, and raw dp.
+entry test_step (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.t) (acc0:R.t)
+    : ([][]R.t, [][]R.t, [][][]R.t, [][]R.t) =
   let [ns][nd] mp : r.trm.mp [n][c][Ax][ns][nd] = r.trm.mk n c Ax
   let mp = r.trm.set_newprices mp (replicate c (R.i64 200))
-  let mp = r.trm.set_acc_0 (replicate c (R.f32 (-5))) mp
+  let mp = r.trm.set_acc_0 (replicate c acc0) mp
   let mp = r.trm.set_transcost transcost mp
   let mp = r.trm.set_mum mum mp
-  let p0 = r.trm.simple_prices mp (R.f32 0.85)
-  let (p1, _, _) = r.newton_step mp sa_max (R.f64 0.5) p0
-  in (p0, p1)
+  let p0 = r.eqb.spp_price_solve mp 100
+  let (ed2d, ded4d) = r.eqb.ed_ded_price_all mp sa_max p0
+  let ed_flat = flatten ed2d
+  let ded_flat = map flatten (flatten ded4d)
+  let blksz : i64 = 16
+  let dp = r.lu.ols blksz ded_flat ed_flat
+  let dp2d : [c][Ax-1]R.t = unflatten dp
+  in (p0, ed2d, map flatten ded4d, dp2d)
 
 --- Get demand and supply at equilibrium prices.
 entry test_demand_supply_eq (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.t) (tol:R.t) (max_iter:i64)
@@ -110,5 +98,14 @@ entry test_demand_supply_p0 (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t
 
 -- ==
 -- entry: solve
--- input { 2i64 1i64 25i64 20i64 0f64 [0.1f64, 0.3f64] 1e-6f64 20i64 }
+-- input { 2i64 1i64 25i64 20i64 0f64 [0.1f64, 0.3f64] -5f64 1f64 1e-6f64 20i64 }
 -- output { ... }
+entry solve (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.t) (acc0:R.t) (damp:R.t) (tol:R.t) (max_iter:i64): ([c][Ax]f64, [c][Ax-1]f64, f64, i64, bool) =
+  let [ns][nd] mp : r.trm.mp [n][c][Ax][ns][nd] = r.trm.mk n c Ax
+  let mp = r.trm.set_newprices mp (replicate c (R.i64 200))
+  let mp = r.trm.set_acc_0 (replicate c acc0) mp
+  let mp = r.trm.set_transcost transcost mp
+  let mp = r.trm.set_mum mum mp
+  let p0 = r.eqb.spp_price_solve mp 100
+  let (p, ed, max_dp, iter, conv) = r.newton mp p0 sa_max damp tol max_iter
+  in (p, ed, max_dp, iter, conv)

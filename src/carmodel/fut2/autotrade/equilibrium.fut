@@ -323,13 +323,12 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
     def ergodic_with_dprice [c][Ax][ns] (ctp:[ns][ns]t) (dctp: [c][Ax-1][ns][ns]t) : ([ns]t, [c][Ax-1][ns]t) =
         let ap = tabulate_2d (ns+1) (ns+1) (\i j -> if (i==ns || j==ns) then R.i64 1 else if i==j then R.(i64 1-ctp[j][i]) else R.(i64 0-ctp[j][i]))
         let ed0 = tabulate (ns+1) (\i -> if (i==ns) then R.i64 2 else R.i64 1)
-        let blksz = 16
-        let erg' = lu.ols blksz ap ed0
+        let erg' = lup.ols (copy ap) (copy ed0)
         let erg = map (\i->erg'[i]) (iota ns)
         let erg_dprice = tabulate_2d c (Ax-1) (\cartype age ->
             let da : [ns+1][ns+1]t = tabulate_2d (ns+1) (ns+1) (\i j-> if (i==ns || j==ns) then R.i64 0 else R.(i64 0-dctp[cartype][age][j][i]))
             let minus_da_inva_ed = map (\row -> reduce (R.+) (R.i64 0) (map2 (\x y -> R.(i64 0-x*y)) row erg')) da
-            let res =  lu.ols blksz ap minus_da_inva_ed
+            let res = lup.ols (copy ap) minus_da_inva_ed
             in map (\i->res[i]) (iota ns)
         )
         in (erg, erg_dprice)
@@ -374,7 +373,6 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let ctp = ctp_from_utils mp tr utils ev
         let ccp_scrap = trm.ccp_scrap_tau mp p tau
         let ccp = trm.ccp_tau mp v ev
-
         let du = utility_dprice_man mp ccp_scrap tau
         let dbellman = dbellman_prices_man ccp du
         let dev = dev_fixed_point_dprice mp ctp dbellman

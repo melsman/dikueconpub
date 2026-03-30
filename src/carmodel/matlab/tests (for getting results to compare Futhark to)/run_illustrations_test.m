@@ -1,7 +1,7 @@
 % This script creates the figures used in Section 4
 
-addpath('matlabinclude');
-addpath('autotrade');
+addpath('..\matlabinclude');
+addpath('..\autotrade');
 addpath('..');
 
 clear
@@ -15,7 +15,7 @@ mp = setparams.default(); % parameters used for illustration
 mp.ntypes = 2;
 mp.ncartypes=1; % switch to 1 car type
 mp.lbl_cartypes = {' '}; % no label for the only car
-abar = 5;
+abar = 25;
 mp.abar_j0 = {abar,abar};
 mp = trmodel.update_mp(mp);
 
