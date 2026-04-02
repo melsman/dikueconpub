@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(futhark test:*)",
+      "Bash(futhark c:*)",
+      "Bash(./run_equilibrium -e diag_ed_ded)",
+      "Bash(./run_equilibrium -e diag_step)",
+      "Bash(./run_equilibrium -e solve)",
+      "Bash(futhark check:*)"
+    ]
+  }
+}

@@ -16,7 +16,7 @@ run_bellman:
 
 .PHONY: clean
 clean:
-	rm -rf *~ *.c run_bellman_ad run_bellman_j run_bellman run_bellman.fut.* run_bellman_ad.fut.* run_bellman_j.fut.* *.exe *.tm *.tmavg plot1.pdf plot1j.pdf plot1ad.pdf plot2.pdf plots.pdf data1.dat data2.dat *.out data1j.dat data1ad.dat
+	rm -rf *~ *.c run_bellman_ad run_bellman_j run_bellman run_bellman.fut.* run_bellman_ad.fut.* run_bellman_j.fut.* run_equilibrium.fut.* *.exe *.tm *.tmavg plot1.pdf plot1j.pdf plot1ad.pdf plot2.pdf plots.pdf data1.dat data2.dat *.out data1j.dat data1ad.dat bench_solve.dat bench_solve_res.dat
 	$(MAKE) -C util clean
 	$(MAKE) -C autotrade clean
 
@@ -141,6 +141,50 @@ data2.dat: $(DATA2_FILES)
 plot2.pdf: plot2-noo.gp data2.dat matlab2.dat
 	gnuplot -e "load \"$<\""
 
+
+# =========================================================
+# Equilibrium benchmark (matches MATLAB bench_run_illustrations_test)
+# Format: n-c-Ax-transcost
+# =========================================================
+
+run_equilibrium-c.exe: run_equilibrium.fut
+	$(FUTHARK) c -o $@ $<
+
+run_equilibrium-m.exe: run_equilibrium.fut
+	$(FUTHARK) multicore -o $@ $<
+
+bench_solve-%-C.tm: run_equilibrium-c.exe
+	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve -r 5 -t $@ > run_equilibrium-$*-c.out
+
+bench_solve-%-M.tm: run_equilibrium-m.exe
+	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve -r 5 -t $@ > run_equilibrium-$*-m.out
+
+EQB_DATA=2-1-25-0 2-3-25-0 2-5-25-0 2-7-25-0 2-9-25-0
+
+EQB_C_FILES=$(EQB_DATA:%=bench_solve-%-C.tmavg)
+EQB_M_FILES=$(EQB_DATA:%=bench_solve-%-M.tmavg)
+
+EQB_FILES=$(EQB_M_FILES) $(EQB_C_FILES)
+
+EQB_C_OUT=$(EQB_DATA:%=run_equilibrium-%-c.out)
+EQB_M_OUT=$(EQB_DATA:%=run_equilibrium-%-m.out)
+
+bench_solve.dat: $(EQB_FILES)
+	rm -f $@
+	for n in $^ ; do \
+             /bin/echo -n $$n | sed 's/[a-z_]*//g' | sed 's/[-.]/ /g' >> $@ ; \
+             cat $$n >> $@ ; \
+        done
+
+bench_solve_res.dat: $(EQB_C_OUT)
+	rm -f $@
+	for n in $^ ; do \
+             /bin/echo -n $$n | sed 's/[a-z_]*//g' | sed 's/[-.]/ /g' >> $@ ; \
+             cat $$n >> $@ ; \
+        done
+
+.PHONY: bench_solve_all
+bench_solve_all: bench_solve.dat bench_solve_res.dat
 
 .PHONY: ad-back-c
 ad-back-c:
