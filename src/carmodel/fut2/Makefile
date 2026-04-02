@@ -16,7 +16,7 @@ run_bellman:
 
 .PHONY: clean
 clean:
-	rm -rf *~ *.c run_bellman_ad run_bellman_j run_bellman run_bellman.fut.* run_bellman_ad.fut.* run_bellman_j.fut.* run_equilibrium.fut.* *.exe *.tm *.tmavg plot1.pdf plot1j.pdf plot1ad.pdf plot2.pdf plots.pdf data1.dat data2.dat *.out data1j.dat data1ad.dat bench_solve.dat bench_solve_res.dat
+	rm -rf *~ *.c run_bellman_ad run_bellman_j run_bellman run_bellman.fut.* run_bellman_ad.fut.* run_bellman_j.fut.* run_equilibrium.fut.* *.exe *.tm *.tmavg plot1.pdf plot1j.pdf plot1ad.pdf plot2.pdf plots.pdf data1.dat data2.dat *.out data1j.dat data1ad.dat bench_solve.dat bench_solve_res.dat bench_solve_sp.dat bench_solve_sp_res.dat
 	$(MAKE) -C util clean
 	$(MAKE) -C autotrade clean
 
@@ -185,6 +185,41 @@ bench_solve_res.dat: $(EQB_C_OUT)
 
 .PHONY: bench_solve_all
 bench_solve_all: bench_solve.dat bench_solve_res.dat
+
+# =========================================================
+# Equilibrium benchmark with simple_prices initial guess
+# Format: n-c-Ax-transcost
+# =========================================================
+
+bench_solve_sp-%-C.tm: run_equilibrium-c.exe
+	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve_simple_prices -r 5 -t $@ > run_equilibrium-sp-$*-c.out
+
+bench_solve_sp-%-M.tm: run_equilibrium-m.exe
+	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve_simple_prices -r 5 -t $@ > run_equilibrium-sp-$*-m.out
+
+EQB_SP_C_FILES=$(EQB_DATA:%=bench_solve_sp-%-C.tmavg)
+EQB_SP_M_FILES=$(EQB_DATA:%=bench_solve_sp-%-M.tmavg)
+
+EQB_SP_FILES=$(EQB_SP_M_FILES) $(EQB_SP_C_FILES)
+
+EQB_SP_C_OUT=$(EQB_DATA:%=run_equilibrium-sp-%-c.out)
+
+bench_solve_sp.dat: $(EQB_SP_FILES)
+	rm -f $@
+	for n in $^ ; do \
+             /bin/echo -n $$n | sed 's/[a-z_]*//g' | sed 's/[-.]/ /g' >> $@ ; \
+             cat $$n >> $@ ; \
+        done
+
+bench_solve_sp_res.dat: $(EQB_SP_C_OUT)
+	rm -f $@
+	for n in $^ ; do \
+             /bin/echo -n $$n | sed 's/[a-z_]*//g' | sed 's/[-.]/ /g' >> $@ ; \
+             cat $$n >> $@ ; \
+        done
+
+.PHONY: bench_solve_sp_all
+bench_solve_sp_all: bench_solve_sp.dat bench_solve_sp_res.dat
 
 .PHONY: ad-back-c
 ad-back-c:
