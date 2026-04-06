@@ -153,17 +153,25 @@ run_equilibrium-c.exe: run_equilibrium.fut
 run_equilibrium-m.exe: run_equilibrium.fut
 	$(FUTHARK) multicore -o $@ $<
 
+run_equilibrium-o.exe: run_equilibrium.fut
+	$(FUTHARK) opencl -o $@ $<
+
 bench_solve-%-C.tm: run_equilibrium-c.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve -r 5 -t $@ > run_equilibrium-$*-c.out
 
 bench_solve-%-M.tm: run_equilibrium-m.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve -r 5 -t $@ > run_equilibrium-$*-m.out
 
+bench_solve-%-O.tm: run_equilibrium-o.exe
+	echo "$*" | sed 's/-/ /g' | ./$< -d AMD -e bench_solve -r 5 -t $@ > run_equilibrium-$*-o.out
+
 EQB_DATA=2-1-25-0 2-3-25-0 2-5-25-0 2-7-25-0 2-9-25-0
 
 EQB_C_FILES=$(EQB_DATA:%=bench_solve-%-C.tmavg)
 EQB_M_FILES=$(EQB_DATA:%=bench_solve-%-M.tmavg)
+EQB_O_FILES=$(EQB_DATA:%=bench_solve-%-O.tmavg)
 
+#EQB_FILES=$(EQB_O_FILES) $(EQB_M_FILES) $(EQB_C_FILES)
 EQB_FILES=$(EQB_M_FILES) $(EQB_C_FILES)
 
 EQB_C_OUT=$(EQB_DATA:%=run_equilibrium-%-c.out)
