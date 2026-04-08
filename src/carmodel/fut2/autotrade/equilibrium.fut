@@ -1,6 +1,7 @@
 import "trmodel"
 import "../lib/github.com/diku-dk/linalg/lup"
 import "../lib/github.com/diku-dk/linalg/lu"
+import "../lib/github.com/diku-dk/linalg/perm"
 import "../lib/github.com/diku-dk/linalg/dpsolve"
 
 module equilibrium (R:real) (trm:trmodel with t = R.t) = {
@@ -12,6 +13,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
     type t = R.t
     type mp [n][c][Ax][ns][nd] = trm.mp [n][c][Ax][ns][nd]
     type~ transition[ns] = trm.transition [ns]
+
 
     type~ sol [n][ns][nd][np] = 
         {p             : [np]t,         -- prices
@@ -86,7 +88,10 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
     ----- particular since some changes had to be made to prevent irregular parallelism.
     def spp_price_solve [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (Axb:i64) : [c][Ax]t =
         let V0 = replicate Axb (R.i64 0)
-        let Vs = #[sequential_outer] tabulate_2d n c (\t ct -> solve_spp_single mp t ct V0)
+        let Vs = unflatten (#[sequential_outer] tabulate (n*c) (\i ->
+            let t = i / c
+            let ct = i % c
+            in solve_spp_single mp t ct V0))
         let policies = tabulate_2d n c  (\t ct ->
             let (_, _, P) = bellman_spp_with_deriv_p mp t ct Vs[t][ct]
             in P
@@ -257,8 +262,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             let eye = R.bool (i == j)
             in R.(eye - mp.bet * ctp[i,j]))
         let blksz : i64 = 16
-        in tabulate_2d c (Ax-1) (\cartype age ->
-            lu.ols blksz par_mat dbellman[cartype][age])
+        in map (\row -> map (\elem -> lu.ols blksz par_mat elem) row) dbellman
     
     def dccp_dprices_from_du_dev [n][c][Ax][ns][nd]
             (mp: trm.mp[n][c][Ax][ns][nd])
@@ -323,14 +327,15 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
     def ergodic_with_dprice [c][Ax][ns] (ctp:[ns][ns]t) (dctp: [c][Ax-1][ns][ns]t) : ([ns]t, [c][Ax-1][ns]t) =
         let ap = tabulate_2d (ns+1) (ns+1) (\i j -> if (i==ns || j==ns) then R.i64 1 else if i==j then R.(i64 1-ctp[j][i]) else R.(i64 0-ctp[j][i]))
         let ed0 = tabulate (ns+1) (\i -> if (i==ns) then R.i64 2 else R.i64 1)
-        let erg' = lup.ols (copy ap) (copy ed0)
+        let (LU, p) = lup.lup (copy ap)
+        let erg' = lup.backsolve LU (lup.forsolve LU (perm.permute p (copy ed0)))
         let erg = map (\i->erg'[i]) (iota ns)
-        let erg_dprice = tabulate_2d c (Ax-1) (\cartype age ->
-            let da : [ns+1][ns+1]t = tabulate_2d (ns+1) (ns+1) (\i j-> if (i==ns || j==ns) then R.i64 0 else R.(i64 0-dctp[cartype][age][j][i]))
+        let erg_dprice = map (\dctp_ct -> map (\dctp_elem ->
+            let da : [ns+1][ns+1]t = tabulate_2d (ns+1) (ns+1) (\i j-> if (i==ns || j==ns) then R.i64 0 else R.(i64 0-dctp_elem[j][i]))
             let minus_da_inva_ed = map (\row -> reduce (R.+) (R.i64 0) (map2 (\x y -> R.(i64 0-x*y)) row erg')) da
-            let res = lup.ols (copy ap) minus_da_inva_ed
+            let res = lup.backsolve LU (lup.forsolve LU (perm.permute p minus_da_inva_ed))
             in map (\i->res[i]) (iota ns)
-        )
+        ) dctp_ct) dctp
         in (erg, erg_dprice)
 
 
@@ -366,7 +371,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             )
         )
 
-    def ded_dprice_tau [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (tau: i64) (ev:[ns]t) 
+    def ded_dprice_tau [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (tau: i64) (ev:[ns]t)
         (v:[ns][nd]t) (p:trm.prices[c][Ax]) : [c][Ax-1][c][Ax-1]t =
         let utils : trm.utility [ns][nd] = trm.utility mp p tau
         let tr = trm.age_transition mp

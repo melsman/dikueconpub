@@ -1,5 +1,6 @@
 
 FUTHARK=futhark
+GPU_DEVICE?=AMD
 
 .PHONY: all
 all: test
@@ -44,7 +45,7 @@ run_bellman-%-M.tm: run_bellman-m.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -e mainn -r 5 -t $@ > run_bellman-$*-m.out
 
 run_bellman-%-O.tm: run_bellman-o.exe
-	echo "$*" | sed 's/-/ /g' | ./$< -d AMD -e mainn -r 5 -t $@ > run_bellman-$*-o.out
+	echo "$*" | sed 's/-/ /g' | ./$< -d $(GPU_DEVICE) -e mainn -r 5 -t $@ > run_bellman-$*-o.out
 
 run_bellman_j-%-C.tm: run_bellman_j-c.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -e mainn -r 5 -t $@ > run_bellman_j-$*-c.out
@@ -53,7 +54,7 @@ run_bellman_j-%-M.tm: run_bellman_j-m.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -e mainn -r 5 -t $@ > run_bellman_j-$*-m.out
 
 run_bellman_j-%-O.tm: run_bellman_j-o.exe
-	echo "$*" | sed 's/-/ /g' | ./$< -d AMD -e mainn -r 5 -t $@ > run_bellman_j-$*-o.out
+	echo "$*" | sed 's/-/ /g' | ./$< -d $(GPU_DEVICE) -e mainn -r 5 -t $@ > run_bellman_j-$*-o.out
 
 run_bellman_ad-%-C.tm: run_bellman_ad-c.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -e mainn -r 5 -t $@ > run_bellman_ad-$*-c.out
@@ -62,7 +63,7 @@ run_bellman_ad-%-M.tm: run_bellman_ad-m.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -e mainn -r 5 -t $@ > run_bellman_ad-$*-m.out
 
 run_bellman_ad-%-O.tm: run_bellman_ad-o.exe
-	echo "$*" | sed 's/-/ /g' | ./$< -d AMD -e mainn -r 5 -t $@ > run_bellman_ad-$*-o.out
+	echo "$*" | sed 's/-/ /g' | ./$< -d $(GPU_DEVICE) -e mainn -r 5 -t $@ > run_bellman_ad-$*-o.out
 
 %.tmavg: %.tm
 	cat $< | python3 -c"import sys; nums = [int(n) for n in sys.stdin]; print(sum(nums)/len(nums)/1000000)" > $@
@@ -163,7 +164,7 @@ bench_solve-%-M.tm: run_equilibrium-m.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve -r 5 -t $@ > run_equilibrium-$*-m.out
 
 bench_solve-%-O.tm: run_equilibrium-o.exe
-	echo "$*" | sed 's/-/ /g' | ./$< -d AMD -e bench_solve -r 5 -t $@ > run_equilibrium-$*-o.out
+	echo "$*" | sed 's/-/ /g' | ./$< -d $(GPU_DEVICE) -e bench_solve -r 5 -t $@ > run_equilibrium-$*-o.out
 
 EQB_DATA=2-1-25-0 2-3-25-0 2-5-25-0 2-7-25-0 2-9-25-0
 
@@ -237,9 +238,9 @@ ad-back-c:
 .PHONY: back-opencl
 back-opencl:
 	$(FUTHARK) opencl run_bellman.fut
-	echo 10 25 200 | ./run_bellman -d AMD -r 5 -t /dev/stderr
+	echo 10 25 200 | ./run_bellman -d $(GPU_DEVICE) -r 5 -t /dev/stderr
 
 .PHONY: ad-back-opencl
 ad-back-opencl:
 	$(FUTHARK) opencl run_bellman_ad.fut
-	echo 10 25 200 | ./run_bellman_ad -d AMD -r 5 -t /dev/stderr
+	echo 10 25 200 | ./run_bellman_ad -d $(GPU_DEVICE) -r 5 -t /dev/stderr
