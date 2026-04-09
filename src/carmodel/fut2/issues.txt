@@ -1,0 +1,1 @@
+cuda does not seem to get the same result for n=1, but gives the same result for other ns. This is very strange.

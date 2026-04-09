@@ -17,7 +17,7 @@ run_bellman:
 
 .PHONY: clean
 clean:
-	rm -rf *~ *.c run_bellman_ad run_bellman_j run_bellman run_bellman.fut.* run_bellman_ad.fut.* run_bellman_j.fut.* run_equilibrium.fut.* *.exe *.tm *.tmavg plot1.pdf plot1j.pdf plot1ad.pdf plot2.pdf plots.pdf data1.dat data2.dat *.out data1j.dat data1ad.dat bench_solve.dat bench_solve_res.dat bench_solve_sp.dat bench_solve_sp_res.dat
+	rm -rf *~ *.c run_bellman_ad run_bellman_j run_bellman run_bellman.fut.* run_bellman_ad.fut.* run_bellman_j.fut.* run_equilibrium.fut.* *.exe *.tm *.tmavg plot1.pdf plot1j.pdf plot1ad.pdf plot2.pdf plot_eqb.pdf plots.pdf data1.dat data2.dat *.out data1j.dat data1ad.dat bench_solve.dat bench_solve_res.dat bench_solve_sp.dat bench_solve_sp_res.dat
 	$(MAKE) -C util clean
 	$(MAKE) -C autotrade clean
 
@@ -37,6 +37,9 @@ futversion:
 
 %-o.exe: %.fut
 	$(FUTHARK) opencl -o $@ $<
+
+%-u.exe: %.fut
+	$(FUTHARK) cuda -o $@ $<
 
 run_bellman-%-C.tm: run_bellman-c.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -e mainn -r 5 -t $@ > run_bellman-$*-c.out
@@ -145,7 +148,7 @@ plot2.pdf: plot2-noo.gp data2.dat matlab2.dat
 
 # =========================================================
 # Equilibrium benchmark (matches MATLAB bench_run_illustrations_test)
-# Format: n-c-Ax-transcost
+# Format: n-c-Ax-acc0-transcost
 # =========================================================
 
 run_equilibrium-c.exe: run_equilibrium.fut
@@ -157,6 +160,9 @@ run_equilibrium-m.exe: run_equilibrium.fut
 run_equilibrium-o.exe: run_equilibrium.fut
 	$(FUTHARK) opencl -o $@ $<
 
+run_equilibrium-u.exe: run_equilibrium.fut
+	$(FUTHARK) cuda -o $@ $<
+
 bench_solve-%-C.tm: run_equilibrium-c.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve -r 5 -t $@ > run_equilibrium-$*-c.out
 
@@ -166,17 +172,28 @@ bench_solve-%-M.tm: run_equilibrium-m.exe
 bench_solve-%-O.tm: run_equilibrium-o.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -d $(GPU_DEVICE) -e bench_solve -r 5 -t $@ > run_equilibrium-$*-o.out
 
-EQB_DATA=2-1-25-0 2-3-25-0 2-5-25-0 2-7-25-0 2-9-25-0
+bench_solve-%-U.tm: run_equilibrium-u.exe
+	echo "$*" | sed 's/-/ /g' | ./$< -d $(GPU_DEVICE) -e bench_solve -r 5 -t $@ > run_equilibrium-$*-u.out
+
+EQB_DATA=2-1-25-5-0 2-3-25-5-0 2-5-25-5-0 2-7-25-5-0 2-9-25-5-0 2-11-25-5-0 2-13-25-5-0
 
 EQB_C_FILES=$(EQB_DATA:%=bench_solve-%-C.tmavg)
 EQB_M_FILES=$(EQB_DATA:%=bench_solve-%-M.tmavg)
 EQB_O_FILES=$(EQB_DATA:%=bench_solve-%-O.tmavg)
+EQB_U_FILES=$(EQB_DATA:%=bench_solve-%-U.tmavg)
 
+#EQB_FILES=$(EQB_U_FILES) $(EQB_O_FILES) $(EQB_M_FILES) $(EQB_C_FILES)
 #EQB_FILES=$(EQB_O_FILES) $(EQB_M_FILES) $(EQB_C_FILES)
 EQB_FILES=$(EQB_M_FILES) $(EQB_C_FILES)
 
 EQB_C_OUT=$(EQB_DATA:%=run_equilibrium-%-c.out)
 EQB_M_OUT=$(EQB_DATA:%=run_equilibrium-%-m.out)
+EQB_O_OUT=$(EQB_DATA:%=run_equilibrium-%-o.out)
+EQB_U_OUT=$(EQB_DATA:%=run_equilibrium-%-u.out)
+
+#EQB_OUT=$(EQB_U_OUT) $(EQB_O_OUT) $(EQB_M_OUT) $(EQB_C_OUT)
+#EQB_OUT=$(EQB_O_OUT) $(EQB_M_OUT) $(EQB_C_OUT)
+EQB_OUT=$(EQB_M_OUT) $(EQB_C_OUT)
 
 bench_solve.dat: $(EQB_FILES)
 	rm -f $@
@@ -185,7 +202,7 @@ bench_solve.dat: $(EQB_FILES)
              cat $$n >> $@ ; \
         done
 
-bench_solve_res.dat: $(EQB_C_OUT)
+bench_solve_res.dat: $(EQB_OUT)
 	rm -f $@
 	for n in $^ ; do \
              /bin/echo -n $$n | sed 's/[a-z_]*//g' | sed 's/[-.]/ /g' >> $@ ; \
@@ -195,9 +212,12 @@ bench_solve_res.dat: $(EQB_C_OUT)
 .PHONY: bench_solve_all
 bench_solve_all: bench_solve.dat bench_solve_res.dat
 
+plot_eqb.pdf: plot_eqb.gp
+	gnuplot -e "load \"$<\""
+
 # =========================================================
 # Equilibrium benchmark with simple_prices initial guess
-# Format: n-c-Ax-transcost
+# Format: n-c-Ax-acc0-transcost
 # =========================================================
 
 bench_solve_sp-%-C.tm: run_equilibrium-c.exe

@@ -117,15 +117,15 @@ entry solve_avg_price (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum
   let cAx = R.i64 (c * Ax)
   in R.(tot_p/cAx)
 
---- Benchmarking format: n-c-Ax-transcost
-entry bench_solve (n:i64) (c:i64) (Ax:i64) (transcost:R.t) : f64 =
+--- Benchmarking format: n-c-Ax-acc0-transcost (acc0 is positive, negated inside)
+entry bench_solve (n:i64) (c:i64) (Ax:i64) (acc0:R.t) (transcost:R.t) : f64 =
   let mum = tabulate n (\i -> if i == 0 then 0.1f64 else 0.3f64)
   let pnew = tabulate c (\i -> if i == 0 then 200.0f64 else 260.0f64)
   let u_0 = tabulate_2d n c (\_ j -> if j == 0 then 6.0f64 else 6.5f64)
   let u_a = tabulate_2d n c (\_ j -> if j == 0 then -0.5f64 else -0.475f64)
   let [ns][nd] mp : r.trm.mp [n][c][Ax][ns][nd] = r.trm.mk n c Ax
   let mp = r.trm.set_newprices mp pnew
-  let mp = r.trm.set_acc_0 (replicate c (-5.0f64)) mp
+  let mp = r.trm.set_acc_0 (replicate c (R.neg acc0)) mp
   let mp = r.trm.set_transcost transcost mp
   let mp = r.trm.set_mum mum mp
   let mp = r.trm.set_u_0 u_0 mp
@@ -138,14 +138,14 @@ entry bench_solve (n:i64) (c:i64) (Ax:i64) (transcost:R.t) : f64 =
   let count = R.i64 (c * (Ax - 1))
   in R.(tot_p/count)
 
-entry bench_solve_simple_prices (n:i64) (c:i64) (Ax:i64) (transcost:R.t) : f64 =
+entry bench_solve_simple_prices (n:i64) (c:i64) (Ax:i64) (acc0:R.t) (transcost:R.t) : f64 =
   let mum = tabulate n (\i -> if i == 0 then 0.1f64 else 0.3f64)
   let pnew = tabulate c (\i -> if i == 0 then 200.0f64 else 260.0f64)
   let u_0 = tabulate_2d n c (\_ j -> if j == 0 then 6.0f64 else 6.5f64)
   let u_a = tabulate_2d n c (\_ j -> if j == 0 then -0.5f64 else -0.475f64)
   let [ns][nd] mp : r.trm.mp [n][c][Ax][ns][nd] = r.trm.mk n c Ax
   let mp = r.trm.set_newprices mp pnew
-  let mp = r.trm.set_acc_0 (replicate c (-5.0f64)) mp
+  let mp = r.trm.set_acc_0 (replicate c (R.neg acc0)) mp
   let mp = r.trm.set_transcost transcost mp
   let mp = r.trm.set_mum mum mp
   let mp = r.trm.set_u_0 u_0 mp

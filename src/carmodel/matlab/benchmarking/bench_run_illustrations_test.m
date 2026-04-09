@@ -58,7 +58,7 @@ fclose(fid);
 fid2 = fopen('..\..\fut2\matlab_eqb_res.dat', 'w');
 fclose(fid2);
 
-for c = 1:2:9
+for c = 1:2:13
     [t, sol] = time_bench_run(n, c, abar, acc_0, transcost);
     write_benchmark('..\..\fut2\matlab_eqb.dat', n, c, abar, acc_0, transcost, t);
     write_avg_price('..\..\fut2\matlab_eqb_res.dat', n, c, abar, acc_0, transcost, sol);
