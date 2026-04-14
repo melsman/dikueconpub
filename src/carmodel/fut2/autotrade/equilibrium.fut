@@ -121,8 +121,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
     --- inputs
     --- ctp: a total transition matrix of size ns x ns
     --- outputs: The ergodic distribution [ns]t q, that satisfies q@ccp=q
-    --- Note - could probably save some time here by seeing if I could implement some sort of solver than doesn't
-    --- require sparse matrices?
+    --- Note - could probably save some time here by seeing if I could implement some sort of solver that only requires sparse matrices?
     def ergodic [ns] (ctp:[ns][ns]t) : [ns]t =
         let ap = tabulate_2d (ns+1) (ns+1) (\i j -> if (i==ns || j==ns) then R.i64 1 else if i==j then R.(i64 1-ctp[j][i]) else R.(i64 0-ctp[j][i]))
         let ed0 = tabulate (ns+1) (\i -> if (i==ns) then R.i64 2 else R.i64 1)
@@ -295,7 +294,63 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             dev_fixed_point_dprice mp ctp dbellman
 
         in dccp_dprices_from_du_dev mp tr utils ev du dev
-        
+
+    def dv_dprice_man [n][c][Ax][ns][nd]
+            (mp: trm.mp[n][c][Ax][ns][nd])
+            (tr: trm.transition[ns])
+            (du: [c][Ax-1][ns][nd]t)
+            (dev: [c][Ax-1][ns]t) : [c][Ax-1][ns][nd]t =
+        let trade_idx_n = nd - 2
+        in tabulate_2d c (Ax-1) (\p_ct p_age ->
+            let dev_notrade : [ns]t = trm.age_transition_smvm_notrade tr dev[p_ct][p_age]
+            let dev_trade : [ns]t = trm.age_transition_smvm_trade tr dev[p_ct][p_age]
+            let dev_nocar : t = dev[p_ct][p_age][ns-1]
+
+            --- keep: v[s][0] = u[s][0]+ beta *(F.notrade * EV)[s] (0 for nocar) - where (F.notrade * EV)[s] = sum_i F.notrade[s][i]*EV[i]
+            --- -> dv[s,0] = du[s,0]+ beta *(F.notrade * dev)[s] (0 for nocar)
+            --- when keeping, the expected value (and thus the relevant dev) depends on the current state.
+            let dv_keep : [ns]t =
+                tabulate ns (\s ->
+                    if s == ns-1 then R.i64 0
+                    else R.(du[p_ct][p_age][s][0] + mp.bet * dev_notrade[s]))
+
+            --- trade: v[s][d] = u[s][d] + beta*(F.trade*EV)[d-1] - where (F.trade*EV)[d-1] = sum_i F.trade[d-1][i]*EV[i]
+            --- dv[s,d] = du[s,d]+ beta*(F.trade*dev)[d-1] (same future value for all s)
+            --- whent rading, the expected value (and thus the relevant dev) depends on what you trade for, i.e. the decision.
+            let dv_trade : [trade_idx_n]t =
+                tabulate trade_idx_n (\d ->
+                    R.(mp.bet * dev_trade[d]))
+
+            --- purge: v[s][d] = u[s][d] + beta*EV[nocar] - where nocar is the last state, and the purge decision is the last decision so that d=nd-1
+            --- dv[s,nd-1] = du[s,nd-1] + beta*dev[ns-1]
+            --- when purging, the expected value in the next period is the same no matter the state.
+            let dv_purge_fut : t = R.(mp.bet * dev_nocar)
+
+            in tabulate_2d ns nd (\s d ->
+                if d == 0 then dv_keep[s]
+                else if d <= trade_idx_n then
+                    let d' = d - 1
+                    in R.(du[p_ct][p_age][s][d] + dv_trade[d'])
+                else -- purge
+                    R.(du[p_ct][p_age][s][d] + dv_purge_fut)
+            )
+        )
+
+    def dccp_dprice_man [n][c][Ax][ns][nd]
+            (mp: trm.mp[n][c][Ax][ns][nd])
+            (ccp: [ns][nd]t)
+            (dv: [c][Ax-1][ns][nd]t)
+            (dev: [c][Ax-1][ns]t) : [c][Ax-1][ns][nd]t =
+        tabulate_2d c (Ax-1) (\p_ct p_age ->
+            tabulate_2d ns nd (\s d ->
+                --- logccp[s][d] = log(exp((v[s][d]-EV[s])/sigma))=(v[s][d]-EV[s])/sigma
+                --- -> dlogccp[s][d] = (dv[p_ct][p_age][s][d] - dev[p_ct][p_age][s]) / mp.sigma
+                let dlogccp = R.((dv[p_ct][p_age][s][d] - dev[p_ct][p_age][s]) / mp.sigma)
+                --- ccp[s][d] = exp(logccp[s][d]) ->
+                --- dccp[s][d] = ccp[s][d]*dlogccp by the chain rule
+                in R.(ccp[s][d] * dlogccp)
+            )
+        )
 
     def dctp_dprices_from_du_dev [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) (tr: trm.transition[ns]) (utils: trm.utility[ns][nd])
             (ev: trm.ev[ns]) (du: [c][Ax-1][ns][nd]t) (dev: [c][Ax-1][ns]t) : [c][Ax-1][ns][ns]t =
@@ -324,6 +379,28 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
 
         in dctp_dprices_from_du_dev mp tr utils ev du dev
 
+    --- ddelta[i,j] = dccp[i, decision_for_j] + (if i==j then dccp[i,0] else 0)
+    --- dctp = ddelta * F
+    def dctp_dprice_man [n][c][Ax][ns][nd]
+            (_mp: trm.mp[n][c][Ax][ns][nd])
+            (tr: trm.transition[ns])
+            (dccp: [c][Ax-1][ns][nd]t) : [c][Ax-1][ns][ns]t =
+        tabulate_2d c (Ax-1) (\p_ct p_age ->
+            --- Construct ddelta[i][j]:
+            --- For car state j = ct*Ax + age, the decision that leads there is
+            ---   d = 1 + ct*Ax + ((age+1) % Ax)   (from the rotate-1 in trade_transition)
+            --- For nocar j = ns-1, the decision is purge = nd-1.
+            let ddelta : [ns][ns]t = tabulate_2d ns ns (\i j ->
+                let d = if j >= ns - 1 then nd - 1
+                        else let ct = j / Ax
+                             let age = j % Ax
+                             in 1 + ct*Ax + (age+1) % Ax
+                let keep_diag = if i == j then dccp[p_ct][p_age][i][0] else R.i64 0
+                in R.(dccp[p_ct][p_age][i][d] + keep_diag)
+            )
+            in trm.age_transition_dmsmm_notrade ddelta tr
+        )
+
     def ergodic_with_dprice [c][Ax][ns] (ctp:[ns][ns]t) (dctp: [c][Ax-1][ns][ns]t) : ([ns]t, [c][Ax-1][ns]t) =
         let ap = tabulate_2d (ns+1) (ns+1) (\i j -> if (i==ns || j==ns) then R.i64 1 else if i==j then R.(i64 1-ctp[j][i]) else R.(i64 0-ctp[j][i]))
         let ed0 = tabulate (ns+1) (\i -> if (i==ns) then R.i64 2 else R.i64 1)
@@ -344,12 +421,24 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
 
         tabulate_2d c (Ax-1) (\m_ct m_age ->
             let owned_car = m_ct*Ax + m_age
+            --- Decision of car a+1 responds to state a.
             let buycol = 1 + m_ct*Ax + (m_age+1)
             let keep_survive = R.(i64 1 - ccp[owned_car,0])
             let no_scrap = R.(i64 1 - ccp_scrap[owned_car])
-
+            
+            --- ed_dprice[c][a] = demand[c][a] - supply[c][a] 
+            --- ded_dprice[c][a] = demand_dprice[c][a] -supply_dprice[c][a]
+            
+            --- [j]=[c][a]
+            --- supply[j] = (1-ccp[j][0])*(1-ccp_scrap[j])*q[j]
+            --- supply_dprice[j] = (1-ccp[j][0])*(1-ccp_scrap[j])*dq[j] + (1-ccp[j][0])*(-dccp_scrap[j])*q[j] + (-dccp[j][0])*(1-ccp_scrap[j])*q[j]
+            --- however, when we instead want -supply, we need to reverse the minus signs on the second two terms and add a minus sign to the first term
+            
+            --- demand[c][a] = sum_s q[s]*ccp[s][buycol(c,a)]
+            --- demand_dprice[c][a] = (sum_s q[s]*dccp[s][buycol] + dq[s]*ccp[s][buycol])
             in tabulate_2d c (Ax-1) (\p_ct p_age ->
 
+                --- Corresponds to demand_dprice[c][a] = (sum_s q[s]*dccp[s][buycol] + dq[s]*ccp[s][buycol])
                 let dD =
                     reduce (R.+) (R.i64 0)
                         (tabulate ns (\s ->
@@ -358,12 +447,15 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
                             )
                         )
 
+                --- Corresponds to (dccp[j][0])*(1-ccp_scrap[j])*q[j] from supply_dprice
                 let dED_supply_keep =
                     R.(dccp[p_ct][p_age][owned_car][0] * no_scrap * q[owned_car])
 
+                --- Corresponds to (1-ccp[j][0])*(dccp_scrap[j])*q[j] from supply_dprice
                 let dED_supply_q =
                     R.(i64 0 - keep_survive * no_scrap * dq[p_ct][p_age][owned_car])
-
+                
+                --- Corresponds to (1-ccp[j][0])*(dccp_scrap[j])*q[j] from supply_dprice
                 let dED_supply_scrap =
                     R.(keep_survive * dccp_scrap[p_ct][p_age][owned_car] * q[owned_car])
 
@@ -388,7 +480,26 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
 
         in ded_dprice ccp dccp erg erg_dprice ccp_scrap dccp_scrap
 
-    -------- Flattening functions for testing --------
+    def ded_dprice_tau_man [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (tau: i64) (ev:[ns]t)
+        (v:[ns][nd]t) (p:trm.prices[c][Ax]) : [c][Ax-1][c][Ax-1]t =
+        let utils : trm.utility [ns][nd] = trm.utility mp p tau
+        let tr = trm.age_transition mp
+        let ctp = ctp_from_utils mp tr utils ev
+        let ccp_scrap = trm.ccp_scrap_tau mp p tau
+        let ccp = trm.ccp_tau mp v ev
+        let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+        let du = utility_dprice_man mp ccp_scrap tau
+        let dbellman = dbellman_prices_man ccp du
+        let dev = dev_fixed_point_dprice mp ctp dbellman
+        let dv = dv_dprice_man mp tr du dev
+        let dccp = dccp_dprice_man mp ccp dv dev
+        let dctp = dctp_dprice_man mp tr dccp
+        let (erg, erg_dprice) = ergodic_with_dprice ctp dctp
+        let dccp_scrap = ccp_scrap_dprice_man mp p tau
+
+        in ded_dprice ccp dccp erg erg_dprice ccp_scrap dccp_scrap
+
+    -------- Flattening function for testing --------
     def flatten_ded [c][Ax] (ded: [c][Ax-1][c][Ax-1]t) : [c*(Ax-1)][c*(Ax-1)]t =
         map flatten (flatten ded)
 
@@ -410,6 +521,44 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             let (ev, v) = evs
             in ded_dprice_tau mp tau ev v p) evs (iota n)
 
+
+        let deds : [n][c][Ax-1][c][Ax-1]t = map2 (\ded tw -> map (map (map (map (\x -> R.(x * tw))))) ded) deds mp.tw
+        let zeroes : [c][Ax-1][c][Ax-1]t = tabulate_2d c (Ax-1) (\_ _ -> replicate c (replicate (Ax-1) (R.i64 0)))
+        let ded = reduce (map2 (map2 (map2 (map2 (\x y -> R.(x + y)))))) zeroes deds
+
+        let edf (evs:([ns]t, [ns][nd]t)) (tau:i64) =
+            let (ev, v) = evs
+            let tr = trm.age_transition mp
+            let ccp_scrap_tau = trm.ccp_scrap_tau mp p tau
+            let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+            let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+            let (delta, deltaK_diag, deltaT) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
+            let ctp : [ns][ns]t = trm.ctp_tau tr delta
+            let q_tau : [ns]t = ergodic ctp
+            in ed_tau q_tau deltaK_diag deltaT mp ccp_scrap_tau
+
+        let edfs = map2 edf evs (iota n)
+        let edfs_scaled = map2 (\x w -> map (map (\y -> R.(y * w))) x) edfs mp.tw |> reduce (map2 (map2 (\x y -> R.(x + y)))) (replicate c (replicate (Ax-1) (R.i64 0)))
+
+        in (edfs_scaled, ded)
+
+    ------- ed_ded using all manual derivatives instead
+    def ed_ded_price_all_man [n][c][Ax][ns][nd] (mp:trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (p:trm.prices[c][Ax]) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t) =
+        let sol_evs (tau:i64) : ([ns]t, [ns][nd]t) =
+            let utils : trm.utility [ns][nd] = trm.utility mp p tau
+            let tr = trm.age_transition mp
+            let ev0 = trm.ev0 mp
+            let f = trm.bellmanJ mp utils tr
+            let param = dps.default
+            let param = param with sa_max = sa_max
+            let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.i64 0)
+            let (_, v) = trm.bellman0 mp utils tr ev
+            in (ev, v)
+
+        let evs = #[sequential_outer] map sol_evs (iota n)
+        let deds = #[sequential_outer] map2 (\evs tau ->
+            let (ev, v) = evs
+            in ded_dprice_tau_man mp tau ev v p) evs (iota n)
 
         let deds : [n][c][Ax-1][c][Ax-1]t = map2 (\ded tw -> map (map (map (map (\x -> R.(x * tw))))) ded) deds mp.tw
         let zeroes : [c][Ax-1][c][Ax-1]t = tabulate_2d c (Ax-1) (\_ _ -> replicate c (replicate (Ax-1) (R.i64 0)))
@@ -539,8 +688,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let edfs_scaled = map2 (\x w-> map (\y->R.(y*w)) x) edfs tw
         in edfs_scaled|>reduce (map2 (\x y->R.(x+y))) (replicate (c*(Ax-1)) (R.i64 0))
 
-    -- Returns tw-weighted demand and supply separately, for diagnosing whether
-    -- demand[ct][a] and supply[ct][a] refer to the same car-age market.
+    --- Returns tw-weighted demand and supply separately, for diagnosing whether demand[ct][a] and supply[ct][a] are equivalent at equilibrium prices.
     def demand_supply_all [n][c][Ax][ns][nd] (mp:trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (p:trm.prices[c][Ax]) : ([c][Ax-1]t, [c][Ax-1]t) =
         let sol_evs (tau:i64) : ([ns]t, [ns][nd]t) =
             let utils : trm.utility [ns][nd] = trm.utility mp p tau

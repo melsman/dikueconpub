@@ -73,6 +73,26 @@ entry test_edf_tau_deriv [c] (n:i64) (newprices:[c]f64) (Ax:i64) : [c][Ax-1][c][
     in eqb.ded_dprice_tau mp tau ev v p
 
 -- ==
+-- entry: test_edf_tau_man_deriv
+-- input { 2i64 [100f64, 100f64] 2i64 }
+-- output {  [[[[-0.023859654165286f64], [0.023198151962656f64]]], 
+--             [[[0.023198151962656f64], [-0.023859654165286f64]]]]}
+
+entry test_edf_tau_man_deriv [c] (n:i64) (newprices:[c]f64) (Ax:i64) : [c][Ax-1][c][Ax-1]f64 =
+    let [ns][nd] mp : trm.mp [n][c][Ax][ns][nd] = trm.mk n c Ax
+    let mp = trm.set_newprices mp newprices
+    let p = trm.simple_prices mp 0.85
+    let tau = 0
+    let utils : trm.utility [ns][nd] = trm.utility mp p tau
+    let tr = trm.age_transition mp
+    let ev0 = trm.ev0 mp
+    let f = trm.bellmanJ mp utils tr
+    let param = eqb.dps.default
+    let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = eqb.dps.poly f ev0 param (f64.f32 0)
+    let (ev, v) = trm.bellman0 mp utils tr ev
+    in eqb.ded_dprice_tau_man mp tau ev v p
+
+-- ==
 -- entry: test_ccp_scrap_dprice_man
 -- input { 2i64 [100f64, 100f64] 2i64 }
 -- output {  [[[-0.00000001011f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64]], 

@@ -563,6 +563,9 @@ module trmodel (R:real) : trmodel with t = R.t = {
                        (_mp:mp[n][c][Ax][ns][nd])
                        (ccp: [ns][nd]t) : ([ns][ns]t, [ns]t, [ns][ns]t) =
     let deltaKdiag : [ns]t = map (\x -> x[0]) ccp -- keep: column 0
+    --- Note that decisions are indexed by the cars you can buy (age 0 to maxage-1), while states are indexed by the car you 
+    --- can have at the start of the year (age 1 to maxage). Thus, decision a+1 corresponds to state a.
+    --- Thus, we make it so that the probability of arriving at state a is the probability of choosing decision a+1, which corresponds to state a.
     let deltaT = map (\(x:[nd]t) ->
 		        let vs : [c][Ax]t = unflatten (x[1:ns] :> [c*Ax]t)
 		        let vs = map (rotate 1) vs |> flatten
