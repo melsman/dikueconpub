@@ -718,4 +718,117 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let supply = map2 (\s tw -> map (map (\x -> R.(x * tw))) s) supplies mp.tw
                      |> reduce (map2 (map2 (\x y -> R.(x + y)))) zero
         in (demand, supply)
+
+    --- Hybrid ded_dprice_tau test variants to isolate which manual derivative triggers the CUDA sink bug ---
+
+    --- Hybrid: AD dccp, manual dctp (isolates dctp_dprice_man)
+    def ded_dprice_tau_dctp_only [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (tau: i64) (ev:[ns]t)
+        (v:[ns][nd]t) (p:trm.prices[c][Ax]) : [c][Ax-1][c][Ax-1]t =
+        let utils : trm.utility [ns][nd] = trm.utility mp p tau
+        let tr = trm.age_transition mp
+        let ctp = ctp_from_utils mp tr utils ev
+        let ccp_scrap = trm.ccp_scrap_tau mp p tau
+        let ccp = trm.ccp_tau mp v ev
+        let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+        let du = utility_dprice_man mp ccp_scrap tau
+        let dbellman = dbellman_prices_man ccp du
+        let dev = dev_fixed_point_dprice mp ctp dbellman
+        let dccp = dccp_dprices_from_du_dev mp tr utils ev du dev
+        let dctp = dctp_dprice_man mp tr dccp
+        let (erg, erg_dprice) = ergodic_with_dprice ctp dctp
+        let dccp_scrap = ccp_scrap_dprice_man mp p tau
+        in ded_dprice ccp dccp erg erg_dprice ccp_scrap dccp_scrap
+
+    --- Hybrid: manual dv + manual dccp, AD dctp (isolates combination dv and dccp)
+    def ded_dprice_tau_dv_dccp [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (tau: i64) (ev:[ns]t)
+        (v:[ns][nd]t) (p:trm.prices[c][Ax]) : [c][Ax-1][c][Ax-1]t =
+        let utils : trm.utility [ns][nd] = trm.utility mp p tau
+        let tr = trm.age_transition mp
+        let ctp = ctp_from_utils mp tr utils ev
+        let ccp_scrap = trm.ccp_scrap_tau mp p tau
+        let ccp = trm.ccp_tau mp v ev
+        let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+        let du = utility_dprice_man mp ccp_scrap tau
+        let dbellman = dbellman_prices_man ccp du
+        let dev = dev_fixed_point_dprice mp ctp dbellman
+        let dv = dv_dprice_man mp tr du dev
+        let dccp = dccp_dprice_man mp ccp dv dev
+        let dctp = dctp_dprices_from_du_dev mp tr utils ev du dev
+        let (erg, erg_dprice) = ergodic_with_dprice ctp dctp
+        let dccp_scrap = ccp_scrap_dprice_man mp p tau
+        in ded_dprice ccp dccp erg erg_dprice ccp_scrap dccp_scrap
+
+    --- Wrapper using ded_dprice_tau_dctp_only
+    def ed_ded_price_all_dctp_only [n][c][Ax][ns][nd] (mp:trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (p:trm.prices[c][Ax]) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t) =
+        let sol_evs (tau:i64) : ([ns]t, [ns][nd]t) =
+            let utils : trm.utility [ns][nd] = trm.utility mp p tau
+            let tr = trm.age_transition mp
+            let ev0 = trm.ev0 mp
+            let f = trm.bellmanJ mp utils tr
+            let param = dps.default with sa_max = sa_max
+            let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.i64 0)
+            let (_, v) = trm.bellman0 mp utils tr ev
+            in (ev, v)
+
+        let evs = #[sequential_outer] map sol_evs (iota n)
+        let deds = #[sequential_outer] map2 (\evs tau ->
+            let (ev, v) = evs
+            in ded_dprice_tau_dctp_only mp tau ev v p) evs (iota n)
+
+        let deds : [n][c][Ax-1][c][Ax-1]t = map2 (\ded tw -> map (map (map (map (\x -> R.(x * tw))))) ded) deds mp.tw
+        let zeroes : [c][Ax-1][c][Ax-1]t = tabulate_2d c (Ax-1) (\_ _ -> replicate c (replicate (Ax-1) (R.i64 0)))
+        let ded = reduce (map2 (map2 (map2 (map2 (\x y -> R.(x + y)))))) zeroes deds
+
+        let edf (evs:([ns]t, [ns][nd]t)) (tau:i64) =
+            let (ev, v) = evs
+            let tr = trm.age_transition mp
+            let ccp_scrap_tau = trm.ccp_scrap_tau mp p tau
+            let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+            let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+            let (delta, deltaK_diag, deltaT) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
+            let ctp : [ns][ns]t = trm.ctp_tau tr delta
+            let q_tau : [ns]t = ergodic ctp
+            in ed_tau q_tau deltaK_diag deltaT mp ccp_scrap_tau
+
+        let edfs = map2 edf evs (iota n)
+        let edfs_scaled = map2 (\x w -> map (map (\y -> R.(y * w))) x) edfs mp.tw |> reduce (map2 (map2 (\x y -> R.(x + y)))) (replicate c (replicate (Ax-1) (R.i64 0)))
+
+        in (edfs_scaled, ded)
+
+    --- Wrapper using ded_dprice_tau_dv_dccp
+    def ed_ded_price_all_dv_dccp [n][c][Ax][ns][nd] (mp:trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (p:trm.prices[c][Ax]) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t) =
+        let sol_evs (tau:i64) : ([ns]t, [ns][nd]t) =
+            let utils : trm.utility [ns][nd] = trm.utility mp p tau
+            let tr = trm.age_transition mp
+            let ev0 = trm.ev0 mp
+            let f = trm.bellmanJ mp utils tr
+            let param = dps.default with sa_max = sa_max
+            let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.i64 0)
+            let (_, v) = trm.bellman0 mp utils tr ev
+            in (ev, v)
+
+        let evs = #[sequential_outer] map sol_evs (iota n)
+        let deds = #[sequential_outer] map2 (\evs tau ->
+            let (ev, v) = evs
+            in ded_dprice_tau_dv_dccp mp tau ev v p) evs (iota n)
+
+        let deds : [n][c][Ax-1][c][Ax-1]t = map2 (\ded tw -> map (map (map (map (\x -> R.(x * tw))))) ded) deds mp.tw
+        let zeroes : [c][Ax-1][c][Ax-1]t = tabulate_2d c (Ax-1) (\_ _ -> replicate c (replicate (Ax-1) (R.i64 0)))
+        let ded = reduce (map2 (map2 (map2 (map2 (\x y -> R.(x + y)))))) zeroes deds
+
+        let edf (evs:([ns]t, [ns][nd]t)) (tau:i64) =
+            let (ev, v) = evs
+            let tr = trm.age_transition mp
+            let ccp_scrap_tau = trm.ccp_scrap_tau mp p tau
+            let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+            let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+            let (delta, deltaK_diag, deltaT) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
+            let ctp : [ns][ns]t = trm.ctp_tau tr delta
+            let q_tau : [ns]t = ergodic ctp
+            in ed_tau q_tau deltaK_diag deltaT mp ccp_scrap_tau
+
+        let edfs = map2 edf evs (iota n)
+        let edfs_scaled = map2 (\x w -> map (map (\y -> R.(y * w))) x) edfs mp.tw |> reduce (map2 (map2 (\x y -> R.(x + y)))) (replicate c (replicate (Ax-1) (R.i64 0)))
+
+        in (edfs_scaled, ded)
 }

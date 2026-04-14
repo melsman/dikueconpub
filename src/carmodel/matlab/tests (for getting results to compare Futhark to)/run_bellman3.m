@@ -79,7 +79,9 @@ for t=1:mp.ntypes;
 
 end
 
-disp(max(ev_poly))
+disp(max(ev_poly));
+[ev_f, ccp, dev_final] = trmodel.bellman(mp, s, util(:,:,t),F, ev_sa(:,1));
+disp(dev_final);
 
 % evaluate excess demand for a given price vector, p
 % [ed, ded, sol]=equilibrium.edf(mp, s, p);

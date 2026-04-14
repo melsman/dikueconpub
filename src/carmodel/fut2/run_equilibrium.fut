@@ -15,7 +15,7 @@ module mk_run (R:real) = {
       (mp: trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (damp:t) (p: trm.prices[c][Ax])
       : (trm.prices[c][Ax], [c][Ax-1]t, t) =
     let (ed2d, ded4d) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t) =
-      eqb.ed_ded_price_all_man mp sa_max p
+      eqb.ed_ded_price_all mp sa_max p
 
     let ed_flat  = flatten ed2d
     let ded_flat = map flatten (flatten ded4d)
