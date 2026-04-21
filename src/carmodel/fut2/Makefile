@@ -1,6 +1,8 @@
 
 FUTHARK=futhark
 GPU_DEVICE?=AMD
+RUN_EQUI?=run_equilibrium.fut
+BENCH_RUNS?=5
 
 .PHONY: all
 all: test
@@ -151,29 +153,29 @@ plot2.pdf: plot2-noo.gp data2.dat matlab2.dat
 # Format: n-c-Ax-acc0-transcost
 # =========================================================
 
-run_equilibrium-c.exe: run_equilibrium.fut
+run_equilibrium-c.exe: $(RUN_EQUI)
 	$(FUTHARK) c -o $@ $<
 
-run_equilibrium-m.exe: run_equilibrium.fut
+run_equilibrium-m.exe: $(RUN_EQUI)
 	$(FUTHARK) multicore -o $@ $<
 
-run_equilibrium-o.exe: run_equilibrium.fut
+run_equilibrium-o.exe: $(RUN_EQUI)
 	$(FUTHARK) opencl -o $@ $<
 
-run_equilibrium-u.exe: run_equilibrium.fut
+run_equilibrium-u.exe: $(RUN_EQUI)
 	$(FUTHARK) cuda -o $@ $<
 
 bench_solve-%-C.tm: run_equilibrium-c.exe
-	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve -r 5 -t $@ > run_equilibrium-$*-c.out
+	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve -r $(BENCH_RUNS) -t $@ > run_equilibrium-$*-c.out
 
 bench_solve-%-M.tm: run_equilibrium-m.exe
-	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve -r 5 -t $@ > run_equilibrium-$*-m.out
+	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve -r $(BENCH_RUNS) -t $@ > run_equilibrium-$*-m.out
 
 bench_solve-%-O.tm: run_equilibrium-o.exe
-	echo "$*" | sed 's/-/ /g' | ./$< -d $(GPU_DEVICE) -e bench_solve -r 5 -t $@ > run_equilibrium-$*-o.out
+	echo "$*" | sed 's/-/ /g' | ./$< -d $(GPU_DEVICE) -e bench_solve -r $(BENCH_RUNS) -t $@ > run_equilibrium-$*-o.out
 
 bench_solve-%-U.tm: run_equilibrium-u.exe
-	echo "$*" | sed 's/-/ /g' | ./$< -d $(GPU_DEVICE) -e bench_solve -r 5 -t $@ > run_equilibrium-$*-u.out
+	echo "$*" | sed 's/-/ /g' | ./$< -d $(GPU_DEVICE) -e bench_solve -r $(BENCH_RUNS) -t $@ > run_equilibrium-$*-u.out
 
 EQB_DATA=2-1-25-5-0 2-3-25-5-0 2-5-25-5-0 2-7-25-5-0 2-9-25-5-0 2-11-25-5-0 2-13-25-5-0
 
@@ -191,7 +193,7 @@ EQB_M_OUT=$(EQB_DATA:%=run_equilibrium-%-m.out)
 EQB_O_OUT=$(EQB_DATA:%=run_equilibrium-%-o.out)
 EQB_U_OUT=$(EQB_DATA:%=run_equilibrium-%-u.out)
 
-#EQB_OUT=$(EQB_U_OUT) $(EQB_O_OUT) $(EQB_M_OUT) $(EQB_C_OUT)
+#EQB_OUT=$(EQB_U_OUT) $(EQB_M_OUT) $(EQB_C_OUT)
 #EQB_OUT=$(EQB_O_OUT) $(EQB_M_OUT) $(EQB_C_OUT)
 EQB_OUT=$(EQB_M_OUT) $(EQB_C_OUT)
 
@@ -221,10 +223,10 @@ plot_eqb.pdf: plot_eqb.gp
 # =========================================================
 
 bench_solve_sp-%-C.tm: run_equilibrium-c.exe
-	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve_simple_prices -r 5 -t $@ > run_equilibrium-sp-$*-c.out
+	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve_simple_prices -r $(BENCH_RUNS) -t $@ > run_equilibrium-sp-$*-c.out
 
 bench_solve_sp-%-M.tm: run_equilibrium-m.exe
-	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve_simple_prices -r 5 -t $@ > run_equilibrium-sp-$*-m.out
+	echo "$*" | sed 's/-/ /g' | ./$< -e bench_solve_simple_prices -r $(BENCH_RUNS) -t $@ > run_equilibrium-sp-$*-m.out
 
 EQB_SP_C_FILES=$(EQB_DATA:%=bench_solve_sp-%-C.tmavg)
 EQB_SP_M_FILES=$(EQB_DATA:%=bench_solve_sp-%-M.tmavg)
