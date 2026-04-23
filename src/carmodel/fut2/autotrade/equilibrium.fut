@@ -117,6 +117,10 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
 
 
 
+    -----------------------------------
+    --- Ergodic distribution of q -----
+    -----------------------------------
+
     --- ergodic: finds the invariant distribution for an NxN Markov transition probability, ccp
     --- inputs
     --- ctp: a total transition matrix of size ns x ns
@@ -127,6 +131,11 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let ed0 = tabulate (ns+1) (\i -> if (i==ns) then R.i64 2 else R.i64 1)
         let res' = lup.ols ap ed0
         in map (\i->res'[i]) (iota ns)
+
+
+    ------------------------------------------
+    ---- Supply, demand and excess demand ----
+    ------------------------------------------
 
     def demand_supply_tau [n][c][Ax][ns][nd] (q_tau:[ns]t) (deltaK_diag:[ns]t) (deltaT_tau:[ns][ns]t) (_:mp[n][c][Ax][ns][nd]) (ccp_scrap_tau:[ns]t) : ([c][Ax-1]t, [c][Ax-1]t) =
         let deltaT_trans = transpose deltaT_tau
@@ -177,9 +186,9 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
         in ccp
 
-    -------------------------------
-    ------ Derivatives - AD -------
-    -------------------------------
+    ------------------------------------
+    ------ Derivatives - Utility -------
+    ------------------------------------
 
     def price_basis [c][Ax] (cartype:i64) (age:i64) : trm.prices[c][Ax] =
         tabulate_2d c Ax (\cartype' age' -> R.bool (cartype == cartype' && age == age'))
@@ -203,12 +212,6 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             jvp f p (price_basis j (a+1)))
         in du
 
-
-
-    --------------------------------
-    ------ Derivaties - non-AD -----
-    --------------------------------
-
     --- It doesn't seem like like utility of prices depend on the current price of the car - i.e. the derivative is linear.
     --- Will need to modify this if I implement ptransport and ptc_sale
     def utility_dprice_man [n][c][Ax][ns][nd]
@@ -230,6 +233,10 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
                     )
                 )
 
+    -----------------------------------------------------------------------------------------------------------------------
+    ------ Derivaties - ccp_scrap - derivatives of the (separable and conditional) choice of whether to scrap or sell -----
+    -----------------------------------------------------------------------------------------------------------------------
+
     def ccp_scrap_dprice_man [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) (p:trm.prices[c][Ax]) (tau:i64) : [c][Ax-1][ns]t =
         let mu = mp.mum[tau]
         let ccp_scrap_tau = trm.ccp_scrap_tau mp p tau
@@ -243,6 +250,10 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             )
         )
 
+    -----------------------------------------
+    ------ Derivaties - bellman_d_price -----
+    -----------------------------------------
+
 
     def dbellman_prices_man [Ax][c][ns][nd] (ccp : [ns][nd]t) (du  : [c][Ax-1][ns][nd]t) : [c][Ax-1][ns]t =
         tabulate_2d c (Ax-1) (\cartype age ->
@@ -252,6 +263,9 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
                 )
             )
 
+    ----------------------------------------------------------------------------------
+    ------ Derivaties - EV-fixed point dprice - derivative of the fived point EV -----
+    ----------------------------------------------------------------------------------
     def dev_fixed_point_dprice [n][c][Ax][ns][nd]
             (mp: mp[n][c][Ax][ns][nd])
             (ctp: [ns][ns]t)
@@ -262,39 +276,10 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             in R.(eye - mp.bet * ctp[i,j]))
         let blksz : i64 = 16
         in map (\row -> map (\elem -> lu.ols blksz par_mat elem) row) dbellman
-    
-    def dccp_dprices_from_du_dev [n][c][Ax][ns][nd]
-            (mp: trm.mp[n][c][Ax][ns][nd])
-            (tr: trm.transition[ns])
-            (utils: trm.utility[ns][nd])
-            (ev: trm.ev[ns])
-            (du: [c][Ax-1][ns][nd]t)
-            (dev: [c][Ax-1][ns]t) : [c][Ax-1][ns][nd]t =
-        let g = \(u, e) -> ccp_from_utils mp tr u e
-        in tabulate_2d c (Ax-1) (\cartype age ->
-            jvp g (utils, ev) (du[cartype][age], dev[cartype][age]))
 
-    def ccp_dprice_full [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (p: trm.prices[c][Ax])
-        (tau: i64) (ev: trm.ev[ns])  : [c][Ax-1][ns][nd]t =
-        let tr = trm.age_transition mp
-        let utils : trm.utility[ns][nd] = trm.utility mp p tau
-        let ctp : [ns][ns]t = ctp_from_utils mp tr utils ev
-        let ccp_scrap = trm.ccp_scrap_tau mp p tau
-
-        let du : [c][Ax-1][ns][nd]t =
-            utility_dprice_man mp ccp_scrap tau
-
-        let (ev1, v) = trm.bellman0 mp utils tr ev
-        let ccp : [ns][nd]t = trm.ccp_tau mp v ev1
-
-        let dbellman : [c][Ax-1][ns]t =
-            dbellman_prices_man ccp du
-
-        let dev : [c][Ax-1][ns]t =
-            dev_fixed_point_dprice mp ctp dbellman
-
-        in dccp_dprices_from_du_dev mp tr utils ev du dev
-
+    ---------------------------------------------------------------------------------
+    ------ Derivaties - dv_dprice - derivative of state-dependent choice values -----
+    ---------------------------------------------------------------------------------
     def dv_dprice_man [n][c][Ax][ns][nd]
             (mp: trm.mp[n][c][Ax][ns][nd])
             (tr: trm.transition[ns])
@@ -336,6 +321,42 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             )
         )
 
+    -------------------------------------.-------------------------------------
+    ------ Derivaties - dccp_dprice - derivatives of choice probabilities -----
+    ---------------------------------------------------------------------------
+
+    def dccp_dprices_from_du_dev [n][c][Ax][ns][nd]
+            (mp: trm.mp[n][c][Ax][ns][nd])
+            (tr: trm.transition[ns])
+            (utils: trm.utility[ns][nd])
+            (ev: trm.ev[ns])
+            (du: [c][Ax-1][ns][nd]t)
+            (dev: [c][Ax-1][ns]t) : [c][Ax-1][ns][nd]t =
+        let g = \(u, e) -> ccp_from_utils mp tr u e
+        in tabulate_2d c (Ax-1) (\cartype age ->
+            jvp g (utils, ev) (du[cartype][age], dev[cartype][age]))
+
+    def ccp_dprice_full [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (p: trm.prices[c][Ax])
+        (tau: i64) (ev: trm.ev[ns])  : [c][Ax-1][ns][nd]t =
+        let tr = trm.age_transition mp
+        let utils : trm.utility[ns][nd] = trm.utility mp p tau
+        let ctp : [ns][ns]t = ctp_from_utils mp tr utils ev
+        let ccp_scrap = trm.ccp_scrap_tau mp p tau
+
+        let du : [c][Ax-1][ns][nd]t =
+            utility_dprice_man mp ccp_scrap tau
+
+        let (ev1, v) = trm.bellman0 mp utils tr ev
+        let ccp : [ns][nd]t = trm.ccp_tau mp v ev1
+
+        let dbellman : [c][Ax-1][ns]t =
+            dbellman_prices_man ccp du
+
+        let dev : [c][Ax-1][ns]t =
+            dev_fixed_point_dprice mp ctp dbellman
+
+        in dccp_dprices_from_du_dev mp tr utils ev du dev
+
     def dccp_dprice_man [n][c][Ax][ns][nd]
             (mp: trm.mp[n][c][Ax][ns][nd])
             (ccp: [ns][nd]t)
@@ -351,6 +372,10 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
                 in R.(ccp[s][d] * dlogccp)
             )
         )
+
+    ------------------------------------------------------------------------------
+    ------ Derivaties - dctp_dprice - derivative of transition probabilities -----
+    ------------------------------------------------------------------------------
 
     def dctp_dprices_from_du_dev [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) (tr: trm.transition[ns]) (utils: trm.utility[ns][nd])
             (ev: trm.ev[ns]) (du: [c][Ax-1][ns][nd]t) (dev: [c][Ax-1][ns]t) : [c][Ax-1][ns][ns]t =
@@ -400,6 +425,13 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             )
             in trm.age_transition_dmsmm_notrade ddelta tr
         )
+    
+
+
+    --------------------------------------------------------------------------
+    ------ Derivaties - dq_dprice - derivative of ergodic distribution -------
+    --------------------------------------------------------------------------
+
 
     def ergodic_with_dprice [c][Ax][ns] (ctp:[ns][ns]t) (dctp: [c][Ax-1][ns][ns]t) : ([ns]t, [c][Ax-1][ns]t) =
         let ap = tabulate_2d (ns+1) (ns+1) (\i j -> if (i==ns || j==ns) then R.i64 1 else if i==j then R.(i64 1-ctp[j][i]) else R.(i64 0-ctp[j][i]))
@@ -414,6 +446,10 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             in map (\i->res[i]) (iota ns)
         ) dctp_ct) dctp
         in (erg, erg_dprice)
+
+    -------------------------------------------------------------------------
+    ------ Derivaties - ded_dprice - derivative of excess demand ------------
+    -------------------------------------------------------------------------
 
 
     def ded_dprice [c][Ax][ns][nd] (ccp: [ns][nd]t) (dccp: [c][Ax-1][ns][nd]t)  (q: [ns]t)

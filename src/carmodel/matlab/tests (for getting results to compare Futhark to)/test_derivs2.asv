@@ -11,8 +11,8 @@ mp = setparams.default(); % default parameters used for illustration
 
 % set number of types
 mp.ntypes = 2;
-mp.ncartypes=2;
-mp.abar_j0 = {3,3};
+mp.ncartypes=1;
+mp.abar_j0 = {25,25};
 mp.pnew_notax = {100,100};
 mp.acc_0 = {-5,-5};
 mp.u_0 = {6, 6};
@@ -117,35 +117,32 @@ for t=1:nm;
 
 end
 
-% disp(q_tau{1});
+disp(q_tau{1});
 
-% disp(dbellman)
+disp(dbellman)
 
-% disp(dev);
+disp(dev);
 
-% disp(dctp);
+disp(dctp);
 
-% disp(du);
+disp(du);
 
-% disp(ctp_tau{t});
+disp(ctp_tau{t});
 
-% disp(dctp);
+disp(dctp);
 
-% disp(dq);
+disp(dq);
 
-% disp(ccp_t);
+disp(ccp_t);
 
-% disp(dccp);
+disp(dccp);
 
-% disp(dctp);
+disp(dctp);
+disp(dccp_scrap);
 
-%    disp(dccp_scrap);
-
-% dpsell=zeros(s.ns,s.np); 
-
-% dpsell([s.is.car_ex_clunker{:}],:)=eye(s.np)*(1-mp.ptc_sale);
-
-% disp(dpsell);
+%dpsell=zeros(s.ns,s.np); 
+%dpsell([s.is.car_ex_clunker{:}],:)=eye(s.np)*(1-mp.ptc_sale);
+%disp(dpsell);
 
 % solve for equilibrium price
 % [sol]=equilibrium.solve(mp, s); % solve model in baseline
