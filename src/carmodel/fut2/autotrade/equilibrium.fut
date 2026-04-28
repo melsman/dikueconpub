@@ -540,30 +540,29 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         map flatten (flatten ded)
 
     -------- Function from getting ed and ed_dprice from mp, p and sa_max --------
-    def ed_ded_price_all [n][c][Ax][ns][nd] (mp:trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (p:trm.prices[c][Ax]) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t) =
-        let sol_evs (tau:i64) : ([ns]t, [ns][nd]t) =
+    def ed_ded_price_all [n][c][Ax][ns][nd] (mp:trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (p:trm.prices[c][Ax]) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t, [n]i64, [n]i64, [n]i64) =
+        let sol_evs (tau:i64) : ([ns]t, [ns][nd]t, i64, i64, i64) =
             let utils : trm.utility [ns][nd] = trm.utility mp p tau
             let tr = trm.age_transition mp
             let ev0 = trm.ev0 mp
             let f = trm.bellmanJ mp utils tr
             let param = dps.default
             let param = param with sa_max = sa_max
-            let {res=ev,jac=_,conv=_,iter_sa=_,iter_nk=_,rtrips=_,tol=_} = dps.poly f ev0 param (R.i64 0)
+            let {res=ev,jac=_,conv=_,iter_sa=sa_iters,iter_nk=nk_iters,rtrips=rtrips,tol=_} = dps.poly f ev0 param (R.i64 0)
             let (_, v) = trm.bellman0 mp utils tr ev
-            in (ev, v)
+            in (ev, v, sa_iters, nk_iters, rtrips)
 
         let evs = #[sequential_outer] map sol_evs (iota n)
         let deds = #[sequential_outer] map2 (\evs tau -> 
-            let (ev, v) = evs
+            let (ev, v, _, _, _) = evs
             in ded_dprice_tau mp tau ev v p) evs (iota n)
-
 
         let deds : [n][c][Ax-1][c][Ax-1]t = map2 (\ded tw -> map (map (map (map (\x -> R.(x * tw))))) ded) deds mp.tw
         let zeroes : [c][Ax-1][c][Ax-1]t = tabulate_2d c (Ax-1) (\_ _ -> replicate c (replicate (Ax-1) (R.i64 0)))
         let ded = reduce (map2 (map2 (map2 (map2 (\x y -> R.(x + y)))))) zeroes deds
 
-        let edf (evs:([ns]t, [ns][nd]t)) (tau:i64) =
-            let (ev, v) = evs
+        let edf (evs:([ns]t, [ns][nd]t, i64, i64, i64)) (tau:i64) =
+            let (ev, v, _, _, _) = evs
             let tr = trm.age_transition mp
             let ccp_scrap_tau = trm.ccp_scrap_tau mp p tau
             let ccp : [ns][nd]t = trm.ccp_tau mp v ev
@@ -576,7 +575,10 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let edfs = map2 edf evs (iota n)
         let edfs_scaled = map2 (\x w -> map (map (\y -> R.(y * w))) x) edfs mp.tw |> reduce (map2 (map2 (\x y -> R.(x + y)))) (replicate c (replicate (Ax-1) (R.i64 0)))
 
-        in (edfs_scaled, ded)
+        let (_, _, sa_iters, nk_iters, rtrips) = unzip5 evs
+
+
+        in (edfs_scaled, ded, sa_iters, nk_iters, rtrips)
 
     ------- ed_ded using all manual derivatives instead
     def ed_ded_price_all_man [n][c][Ax][ns][nd] (mp:trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (p:trm.prices[c][Ax]) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t) =

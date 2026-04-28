@@ -14,7 +14,7 @@ module mk_run (R:real) = {
   def newton_step [n][c][Ax][ns][nd]
       (mp: trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (damp:t) (p: trm.prices[c][Ax])
       : (trm.prices[c][Ax], [c][Ax-1]t, t) =
-    let (ed2d, ded4d) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t) =
+    let (ed2d, ded4d, _, _, _) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t, [n]i64, [n]i64, [n]i64) =
       eqb.ed_ded_price_all mp sa_max p
 
     let ed_flat  = flatten ed2d
@@ -53,7 +53,7 @@ entry test_ed_ded (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t)
   let mp = r.trm.set_newprices mp (replicate c (R.i64 200))
   let mp = r.trm.set_transcost transcost mp
   let p0 = r.trm.simple_prices mp (R.f32 0.85)
-  let (ed, ded) = r.eqb.ed_ded_price_all mp sa_max p0
+  let (ed, ded, _, _, _) = r.eqb.ed_ded_price_all mp sa_max p0
   in (ed, map flatten ded)
 
 --- Returns p0, ed, ded, and raw dp.
@@ -65,7 +65,7 @@ entry test_step (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.
   let mp = r.trm.set_transcost transcost mp
   let mp = r.trm.set_mum mum mp
   let p0 = r.eqb.spp_price_solve mp 100
-  let (ed2d, ded4d) = r.eqb.ed_ded_price_all mp sa_max p0
+  let (ed2d, ded4d, _, _, _) = r.eqb.ed_ded_price_all mp sa_max p0
   let ed_flat = flatten ed2d
   let ded_flat = map flatten (flatten ded4d)
   let blksz : i64 = 16
@@ -99,7 +99,6 @@ entry test_demand_supply_p0 (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t
 -- ==
 -- entry: solve
 -- input { 2i64 1i64 25i64 20i64 0f64 [0.1f64, 0.3f64] -5f64 1f64 1e-6f64 20i64 }
--- output { ... }
 entry solve (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.t) (acc0:R.t) (damp:R.t) (tol:R.t) (max_iter:i64): ([c][Ax]f64, [c][Ax-1]f64, f64, i64, bool) =
   let [ns][nd] mp : r.trm.mp [n][c][Ax][ns][nd] = r.trm.mk n c Ax
   let mp = r.trm.set_newprices mp (replicate c (R.i64 200))

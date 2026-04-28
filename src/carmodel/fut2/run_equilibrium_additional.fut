@@ -12,11 +12,14 @@ module mk_run (R:real) = {
   module lu = mk_lu R
 
   def newton_step [n][c][Ax][ns][nd]
-      (mp: trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (damp:t) (p: trm.prices[c][Ax])
-      : (trm.prices[c][Ax], [c][Ax-1]t, t) =
-    --- Using #[unsafe] to deal with a sink bug. Remove this once futhark servers get Futhark version 0.25.34
-    let (ed2d, ded4d) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t) =
-      #[unsafe] eqb.ed_ded_price_all_man mp sa_max p
+      (mp: trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (damp:t) (p: trm.prices[c][Ax]) (sa_iters_tot:i64) (nk_iters_tot:i64) 
+      (rtrips_tot: i64): (trm.prices[c][Ax], [c][Ax-1]t, t) =
+    let (ed2d, ded4d, sa_iters, nk_iters, rtrips) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t, bool, bool, i64, i64, i64) =
+      eqb.ed_ded_price_all mp sa_max p
+
+    let sa_iters_tot = sa_iters+sa_iters_tot
+    let nk_iters_tot = nk_iters+nk_iters_tot
+    let rtrips_tot = rtrips+rtrips_tot
 
     let ed_flat  = flatten ed2d
     let ded_flat = map flatten (flatten ded4d)
@@ -31,17 +34,17 @@ module mk_run (R:real) = {
         else let a' = a - 1
              in R.(max (p[ct][a] - damp * dp2d[ct][a']) mp.pscrap[ct]))
     let max_dp = reduce R.max (R.i64 0) (map R.abs dp)
-    in (p_new, ed2d, max_dp)
+    in (p_new, ed2d, max_dp,  sa_iters_tot, nk_iters_tot, rtrips_tot)
 
   def newton [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (p0: trm.prices[c][Ax]) (sa_max:i64) (damp:t) (tol:t) (max_iter:i64)
       : (trm.prices[c][Ax], [c][Ax-1]t, t, i64, bool) =
     let ed0 : [c][Ax-1]t = replicate c (replicate (Ax-1) (R.i64 0))
     let (p, ed, max_dp, iter) =
-      loop (p, ed, max_dp, iter) = (p0, ed0, R.highest, 0i64)
+      loop (p, ed, max_dp, iter,, sa_iters_tot, nk_iters_tot, rtrips_tot) = (p0, ed0, R.highest, 0i64, 0i64, 0i64, 0i64)
       while iter < max_iter && R.(max_dp > tol) do
-        let (p', ed', max_dp') = newton_step mp sa_max damp p
-        in (p', ed', max_dp', iter + 1)
-    in (p, ed, max_dp, iter, R.(max_dp <= tol))
+        let (p', ed', max_dp', sa_iters_tot', nk_iters_tot', rtrips_tot') = newton_step mp sa_max damp p
+        in (p', ed', max_dp', iter + 1, sa_iters_tot', nk_iters_tot', rtrips_tot')
+    in (p, ed, max_dp, iter, R.(max_dp <= tol), sa_iters_tot, nk_iters_tot, rtrips_tot)
 }
 
 module R = f64
@@ -54,7 +57,7 @@ entry test_ed_ded (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t)
   let mp = r.trm.set_newprices mp (replicate c (R.i64 200))
   let mp = r.trm.set_transcost transcost mp
   let p0 = r.trm.simple_prices mp (R.f32 0.85)
-  let (ed, ded) = r.eqb.ed_ded_price_all_man mp sa_max p0
+  let (ed, ded, _, _, _) = r.eqb.ed_ded_price_all mp sa_max p0
   in (ed, map flatten ded)
 
 --- Returns p0, ed, ded, and raw dp.
@@ -66,7 +69,7 @@ entry test_step (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.
   let mp = r.trm.set_transcost transcost mp
   let mp = r.trm.set_mum mum mp
   let p0 = r.eqb.spp_price_solve mp 100
-  let (ed2d, ded4d) = r.eqb.ed_ded_price_all_man mp sa_max p0
+  let (ed2d, ded4d, _, _, _) = r.eqb.ed_ded_price_all mp sa_max p0
   let ed_flat = flatten ed2d
   let ded_flat = map flatten (flatten ded4d)
   let blksz : i64 = 16
@@ -108,11 +111,11 @@ entry solve (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.t) (
   let mp = r.trm.set_transcost transcost mp
   let mp = r.trm.set_mum mum mp
   let p0 = r.eqb.spp_price_solve mp 100
-  let (p, ed, max_dp, iter, conv) = r.newton mp p0 sa_max damp tol max_iter
-  in (p, ed, max_dp, iter, conv)
+  let (p, ed, max_dp, iter, conv, sa_iters_tot, nk_iters_tot, rtrips_tot) = r.newton mp p0 sa_max damp tol max_iter
+  in (p, ed, max_dp, iter, conv_tot, sa_iters_tot, nk_iters_tot, rtrips_tot)
 
 entry solve_avg_price (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.t) (acc0:R.t) (damp:R.t) (tol:R.t) (max_iter:i64): f64 =
-  let (p, _, _, _, _) = solve n c Ax sa_max transcost mum acc0 damp tol max_iter
+  let (p, _, _, _, _, _, _, _) = solve n c Ax sa_max transcost mum acc0 damp tol max_iter
   let p = flatten p
   let tot_p = reduce (\x y -> R.(x + y)) (R.i64 0) p
   let cAx = R.i64 (c * Ax)
