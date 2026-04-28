@@ -100,7 +100,6 @@ entry test_demand_supply_p0 (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t
 -- ==
 -- entry: solve
 -- input { 2i64 1i64 25i64 20i64 0f64 [0.1f64, 0.3f64] -5f64 1f64 1e-6f64 20i64 }
--- output { ... }
 entry solve (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.t) (acc0:R.t) (damp:R.t) (tol:R.t) (max_iter:i64): ([c][Ax]f64, [c][Ax-1]f64, f64, i64, bool) =
   let [ns][nd] mp : r.trm.mp [n][c][Ax][ns][nd] = r.trm.mk n c Ax
   let mp = r.trm.set_newprices mp (replicate c (R.i64 200))
