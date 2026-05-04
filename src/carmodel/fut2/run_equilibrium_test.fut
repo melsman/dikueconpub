@@ -81,6 +81,6 @@ entry test_at_p_ded (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[
 
 --- Full ed_ded_price_all at given prices (aggregated over all tau)
 entry test_at_p_ed_ded (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.t) (acc0:R.t) (p:[c][Ax]R.t)
-    : ([c][Ax-1]R.t, [c][Ax-1][c][Ax-1]R.t) =
+    : ([c][Ax-1]R.t, [c][Ax-1][c][Ax-1]R.t, ) =
   let mp = mk_mp Ax transcost mum acc0 (replicate c (R.i64 200))
   in eqb.ed_ded_price_all mp sa_max p

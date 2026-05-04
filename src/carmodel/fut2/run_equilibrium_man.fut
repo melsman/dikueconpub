@@ -12,11 +12,15 @@ module mk_run (R:real) = {
   module lu = mk_lu R
 
   def newton_step [n][c][Ax][ns][nd]
-      (mp: trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (damp:t) (p: trm.prices[c][Ax])
-      : (trm.prices[c][Ax], [c][Ax-1]t, t) =
+      (mp: trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (damp:t) (p: trm.prices[c][Ax]) (sa_iters_tot:[n]i64) (nk_iters_tot:[n]i64) 
+      (rtrips_tot: [n]i64): (trm.prices[c][Ax], [c][Ax-1]t, t, [n]i64, [n]i64, [n]i64) =
     --- Using #[unsafe] to deal with a sink bug. Remove this once futhark servers get Futhark version 0.25.34
-    let (ed2d, ded4d) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t) =
+    let (ed2d, ded4d, sa_iters, nk_iters, rtrips) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t, [n]i64, [n]i64, [n]i64) =
       #[unsafe] eqb.ed_ded_price_all_man mp sa_max p
+
+    let sa_iters_tot = map2 (\x y -> x + y) sa_iters sa_iters_tot
+    let nk_iters_tot = map2 (\x y -> x + y) nk_iters nk_iters_tot
+    let rtrips_tot = map2 (\x y -> x + y) rtrips rtrips_tot
 
     let ed_flat  = flatten ed2d
     let ded_flat = map flatten (flatten ded4d)
@@ -31,17 +35,18 @@ module mk_run (R:real) = {
         else let a' = a - 1
              in R.(max (p[ct][a] - damp * dp2d[ct][a']) mp.pscrap[ct]))
     let max_dp = reduce R.max (R.i64 0) (map R.abs dp)
-    in (p_new, ed2d, max_dp)
+    in (p_new, ed2d, max_dp, sa_iters_tot, nk_iters_tot, rtrips_tot)
 
   def newton [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (p0: trm.prices[c][Ax]) (sa_max:i64) (damp:t) (tol:t) (max_iter:i64)
-      : (trm.prices[c][Ax], [c][Ax-1]t, t, i64, bool) =
+      : (trm.prices[c][Ax], [c][Ax-1]t, t, i64, bool, [n]i64, [n]i64, [n]i64) =
     let ed0 : [c][Ax-1]t = replicate c (replicate (Ax-1) (R.i64 0))
-    let (p, ed, max_dp, iter) =
-      loop (p, ed, max_dp, iter) = (p0, ed0, R.highest, 0i64)
+    let start_iters = replicate n (0i64)
+    let (p, ed, max_dp, iter, sa_iters_tot, nk_iters_tot, rtrips_tot) =
+      loop (p, ed, max_dp, iter, sa_iters_tot, nk_iters_tot, rtrips_tot) = (p0, ed0, R.highest, 0i64, start_iters, start_iters, start_iters)
       while iter < max_iter && R.(max_dp > tol) do
-        let (p', ed', max_dp') = newton_step mp sa_max damp p
-        in (p', ed', max_dp', iter + 1)
-    in (p, ed, max_dp, iter, R.(max_dp <= tol))
+        let (p', ed', max_dp', sa_iters_tot', nk_iters_tot', rtrips_tot') = newton_step mp sa_max damp p sa_iters_tot nk_iters_tot rtrips_tot
+        in (p', ed', max_dp', iter + 1, sa_iters_tot', nk_iters_tot', rtrips_tot')
+    in (p, ed, max_dp, iter, R.(max_dp <= tol), sa_iters_tot, nk_iters_tot, rtrips_tot)
 }
 
 module R = f64
@@ -54,7 +59,7 @@ entry test_ed_ded (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t)
   let mp = r.trm.set_newprices mp (replicate c (R.i64 200))
   let mp = r.trm.set_transcost transcost mp
   let p0 = r.trm.simple_prices mp (R.f32 0.85)
-  let (ed, ded) = r.eqb.ed_ded_price_all_man mp sa_max p0
+  let (ed, ded, _, _, _) = r.eqb.ed_ded_price_all_man mp sa_max p0
   in (ed, map flatten ded)
 
 --- Returns p0, ed, ded, and raw dp.
@@ -66,7 +71,7 @@ entry test_step (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.
   let mp = r.trm.set_transcost transcost mp
   let mp = r.trm.set_mum mum mp
   let p0 = r.eqb.spp_price_solve mp 100
-  let (ed2d, ded4d) = r.eqb.ed_ded_price_all_man mp sa_max p0
+  let (ed2d, ded4d, _, _, _) = r.eqb.ed_ded_price_all_man mp sa_max p0
   let ed_flat = flatten ed2d
   let ded_flat = map flatten (flatten ded4d)
   let blksz : i64 = 16
@@ -83,7 +88,7 @@ entry test_demand_supply_eq (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t
   let mp = r.trm.set_transcost transcost mp
   let mp = r.trm.set_mum mum mp
   let p0 = r.trm.simple_prices mp (R.f32 0.85)
-  let (p_eq, _, _, _, _) = r.newton mp p0 sa_max (R.f64 0.5) tol max_iter
+  let (p_eq, _, _, _, _, _, _, _) = r.newton mp p0 sa_max (R.f64 0.5) tol max_iter
   in r.eqb.demand_supply_all mp sa_max p_eq
 
 --- Demand and supply at initial prices
@@ -100,18 +105,18 @@ entry test_demand_supply_p0 (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t
 -- ==
 -- entry: solve
 -- input { 2i64 1i64 25i64 20i64 0f64 [0.1f64, 0.3f64] -5f64 1f64 1e-6f64 20i64 }
-entry solve (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.t) (acc0:R.t) (damp:R.t) (tol:R.t) (max_iter:i64): ([c][Ax]f64, [c][Ax-1]f64, f64, i64, bool) =
+entry solve (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.t) (acc0:R.t) (damp:R.t) (tol:R.t) (max_iter:i64): ([c][Ax]f64, [c][Ax-1]f64, f64, i64, bool, [n]i64, [n]i64, [n]i64) =
   let [ns][nd] mp : r.trm.mp [n][c][Ax][ns][nd] = r.trm.mk n c Ax
   let mp = r.trm.set_newprices mp (replicate c (R.i64 200))
   let mp = r.trm.set_acc_0 (replicate c acc0) mp
   let mp = r.trm.set_transcost transcost mp
   let mp = r.trm.set_mum mum mp
   let p0 = r.eqb.spp_price_solve mp 100
-  let (p, ed, max_dp, iter, conv) = r.newton mp p0 sa_max damp tol max_iter
-  in (p, ed, max_dp, iter, conv)
+  let (p, ed, max_dp, iter, conv, sa_iters_tot, nk_iters_tot, rtrips_tot) = r.newton mp p0 sa_max damp tol max_iter
+  in (p, ed, max_dp, iter, conv, sa_iters_tot, nk_iters_tot, rtrips_tot)
 
 entry solve_avg_price (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t) (mum:[n]R.t) (acc0:R.t) (damp:R.t) (tol:R.t) (max_iter:i64): f64 =
-  let (p, _, _, _, _) = solve n c Ax sa_max transcost mum acc0 damp tol max_iter
+  let (p, _, _, _, _, _, _, _) = solve n c Ax sa_max transcost mum acc0 damp tol max_iter
   let p = flatten p
   let tot_p = reduce (\x y -> R.(x + y)) (R.i64 0) p
   let cAx = R.i64 (c * Ax)
@@ -131,12 +136,72 @@ entry bench_solve (n:i64) (c:i64) (Ax:i64) (acc0:R.t) (transcost:R.t) : f64 =
   let mp = r.trm.set_u_0 u_0 mp
   let mp = r.trm.set_u_a u_a mp
   let p0 = r.eqb.spp_price_solve mp 100
-  let (p, _, _, _, _) = r.newton mp p0 20 1.0f64 1e-6f64 20
+  let (p, _, _, _, _, _, _, _) = r.newton mp p0 20 1.0f64 1e-6f64 20
   -- excluding pnew (age 0) to match MATLAB average
   let p_used = flatten (map (\row -> row[1:]) p)
   let tot_p = reduce (\x y -> R.(x + y)) (R.i64 0) p_used
   let count = R.i64 (c * (Ax - 1))
   in R.(tot_p/count)
+
+--- Validation: same setup as bench_solve, but extends the output with
+--- diagnostics that depend on the equilibrium solution. Returns:
+---   p          equilibrium prices [c][Ax]
+---   max|ed|    max absolute excess demand at p
+---   stat_res   max over (tau, state) of |q_tau @ ctp_tau - q_tau|
+---   norm_err   |sum(q_pop) - 1|, where q_pop = sum_tau tw_tau * q_tau
+---   min_q      min entry of q_pop (catches negative / disconnected ctp)
+---   iter       Newton iterations performed
+---   conv       convergence flag
+---   sa_tot, nk_tot, rtr_tot   per-household total SA / NK / round-trip counts
+--- The per-tau ergodic check re-solves EVs at the converged prices to avoid
+--- altering the bench/newton path.
+entry validate_solve (n:i64) (c:i64) (Ax:i64) (acc0:R.t) (transcost:R.t)
+    : ([c][Ax]f64, f64, f64, f64, f64, i64, bool, [n]i64, [n]i64, [n]i64) =
+  let mum = tabulate n (\i -> if i == 0 then 0.1f64 else 0.3f64)
+  let pnew = tabulate c (\i -> if i == 0 then 200.0f64 else 260.0f64)
+  let u_0 = tabulate_2d n c (\_ j -> if j == 0 then 6.0f64 else 6.5f64)
+  let u_a = tabulate_2d n c (\_ j -> if j == 0 then -0.5f64 else -0.475f64)
+  let [ns][nd] mp : r.trm.mp [n][c][Ax][ns][nd] = r.trm.mk n c Ax
+  let mp = r.trm.set_newprices mp pnew
+  let mp = r.trm.set_acc_0 (replicate c (R.neg acc0)) mp
+  let mp = r.trm.set_transcost transcost mp
+  let mp = r.trm.set_mum mum mp
+  let mp = r.trm.set_u_0 u_0 mp
+  let mp = r.trm.set_u_a u_a mp
+  let p0 = r.eqb.spp_price_solve mp 100
+  let (p, ed, _, iter, conv, sa_iters_tot, nk_iters_tot, rtrips_tot) =
+    r.newton mp p0 20 1.0f64 1e-6f64 20
+  let max_abs_ed = reduce R.max (R.i64 0) (map R.abs (flatten ed))
+
+  -- Per-tau ergodic check at the converged prices.
+  let tr = r.trm.age_transition mp
+  let ev0 = r.trm.ev0 mp
+  let param = r.eqb.dps.default
+  let (qs, stat_resids) =
+    unzip (#[sequential_outer] map (\tau ->
+      let utils = r.trm.utility mp p tau
+      let f = r.trm.bellmanJ mp utils tr
+      let {res=ev, jac=_, conv=_, iter_sa=_, iter_nk=_, rtrips=_, tol=_} =
+        r.eqb.dps.poly f ev0 param (R.i64 0)
+      let ctp = r.eqb.ctp_from_utils mp tr utils ev
+      let q = r.eqb.ergodic ctp
+      let q_at_ctp =
+        map (\col -> reduce (R.+) (R.i64 0) (map2 (R.*) q col)) (transpose ctp)
+      let res = reduce R.max (R.i64 0)
+                  (map R.abs (map2 (R.-) q_at_ctp q))
+      in (q, res)) (iota n))
+  let stat_res = reduce R.max (R.i64 0) stat_resids
+
+  -- Population ownership distribution: q_pop = sum_tau tw_tau * q_tau.
+  let q_pop =
+    reduce (map2 (R.+)) (replicate ns (R.i64 0))
+           (map2 (\q tw -> map (\x -> R.(x * tw)) q) qs mp.tw)
+  let sum_q = reduce (R.+) (R.i64 0) q_pop
+  let norm_err = R.(abs (sum_q - i64 1))
+  let min_q = reduce R.min R.highest q_pop
+
+  in (p, max_abs_ed, stat_res, norm_err, min_q,
+      iter, conv, sa_iters_tot, nk_iters_tot, rtrips_tot)
 
 entry bench_solve_simple_prices (n:i64) (c:i64) (Ax:i64) (acc0:R.t) (transcost:R.t) : f64 =
   let mum = tabulate n (\i -> if i == 0 then 0.1f64 else 0.3f64)
@@ -151,7 +216,7 @@ entry bench_solve_simple_prices (n:i64) (c:i64) (Ax:i64) (acc0:R.t) (transcost:R
   let mp = r.trm.set_u_0 u_0 mp
   let mp = r.trm.set_u_a u_a mp
   let p0 = r.trm.simple_prices mp (R.f32 0.85)
-  let (p, _, _, _, _) = r.newton mp p0 20 1.0f64 1e-6f64 20
+  let (p, _, _, _, _, _, _, _) = r.newton mp p0 20 1.0f64 1e-6f64 20
   -- excluding pnew (age 0) to match MATLAB average
   let p_used = flatten (map (\row -> row[1:]) p)
   let tot_p = reduce (\x y -> R.(x + y)) (R.i64 0) p_used
