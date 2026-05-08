@@ -195,18 +195,18 @@ EQB_M_FILES=$($(EQB_DATA):%=bench_solve-%-M.tmstats)
 EQB_O_FILES=$($(EQB_DATA):%=bench_solve-%-O.tmstats)
 EQB_U_FILES=$($(EQB_DATA):%=bench_solve-%-U.tmstats)
 
-EQB_FILES=$(EQB_U_FILES) $(EQB_M_FILES) $(EQB_C_FILES)
+#EQB_FILES=$(EQB_U_FILES) $(EQB_M_FILES) $(EQB_C_FILES)
 #EQB_FILES=$(EQB_O_FILES) $(EQB_M_FILES) $(EQB_C_FILES)
-#EQB_FILES=$(EQB_M_FILES) $(EQB_C_FILES)
+EQB_FILES=$(EQB_M_FILES) $(EQB_C_FILES)
 
 EQB_C_OUT=$($(EQB_DATA):%=run_equilibrium-%-c.out)
 EQB_M_OUT=$($(EQB_DATA):%=run_equilibrium-%-m.out)
 EQB_O_OUT=$($(EQB_DATA):%=run_equilibrium-%-o.out)
 EQB_U_OUT=$($(EQB_DATA):%=run_equilibrium-%-u.out)
 
-EQB_OUT=$(EQB_U_OUT) $(EQB_M_OUT) $(EQB_C_OUT)
+#EQB_OUT=$(EQB_U_OUT) $(EQB_M_OUT) $(EQB_C_OUT)
 #EQB_OUT=$(EQB_O_OUT) $(EQB_M_OUT) $(EQB_C_OUT)
-#EQB_OUT=$(EQB_M_OUT) $(EQB_C_OUT)
+EQB_OUT=$(EQB_M_OUT) $(EQB_C_OUT)
 
 bench_solve_$(EQB_VARIANT).dat: $(EQB_FILES)
 	rm -f $@

@@ -153,8 +153,6 @@ entry bench_solve (n:i64) (c:i64) (Ax:i64) (acc0:R.t) (transcost:R.t) : f64 =
 ---   iter       Newton iterations performed
 ---   conv       convergence flag
 ---   sa_tot, nk_tot, rtr_tot   per-household total SA / NK / round-trip counts
---- The per-tau ergodic check re-solves EVs at the converged prices to avoid
---- altering the bench/newton path.
 entry validate_solve (n:i64) (c:i64) (Ax:i64) (acc0:R.t) (transcost:R.t)
     : ([c][Ax]f64, f64, f64, f64, f64, i64, bool, [n]i64, [n]i64, [n]i64) =
   let mum = tabulate n (\i -> if i == 0 then 0.1f64 else 0.3f64)

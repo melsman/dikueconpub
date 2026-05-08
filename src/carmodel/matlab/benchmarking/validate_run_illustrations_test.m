@@ -1,7 +1,7 @@
-addpath('..\matlabinclude');
-addpath('..\autotrade');
+addpath('../matlabinclude');
+addpath('../autotrade');
 
-out_dir = '..\..\fut2\matlab_results_for_validation';
+out_dir = '../../fut2/matlab_results_for_validation';
 if ~exist(out_dir, 'dir')
     mkdir(out_dir);
 end

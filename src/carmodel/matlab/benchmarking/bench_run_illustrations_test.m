@@ -1,10 +1,69 @@
 % This solves the bellman equation for a given set of prices and parameters
 
-addpath('..\matlabinclude');
-addpath('..\autotrade');
+addpath('../matlabinclude');
+addpath('../autotrade');
 
 sol = bench_run_illustrations(2, 1, 25, -5, 0);
 disp(mean(sol.p));
+
+t = time_bench_run(2,1,25,-5,0);
+disp(t);
+
+n=2;
+abar = 25;
+transcost = 0;
+acc_0 = -5;
+
+cars_fid_bench = '../../fut2/matlab_eqb_cars.dat';
+cars_fid_res = '../../fut2/matlab_eqb_res_cars.dat';
+
+fid = fopen(cars_fid_bench, 'w');
+fclose(fid);
+fid2 = fopen(cars_fid_res, 'w');
+fclose(fid2);
+
+for c = 1:2:13
+    f = @() bench_run_illustrations(n, c, abar, acc_0, transcost);
+    sol = bench_run_illustrations(n, c, abar, acc_0, transcost);
+    stats = man_time_it(f, 3, 0);
+    write_benchmark(cars_fid_bench, n, c, abar, acc_0, transcost, stats.mean, stats.std, stats.se);
+    write_avg_price(cars_fid_res, n, c, abar, acc_0, transcost, sol);
+end
+
+c = 7;
+
+households_fid_bench = '../../fut2/matlab_eqb_households.dat';
+households_fid_res = '../../fut2/matlab_eqb_res_households.dat';
+
+fid = fopen(households_fid_bench, 'w');
+fclose(fid);
+fid2 = fopen(households_fid_res, 'w');
+fclose(fid2);
+
+for n = 2:1:6
+    f = @() bench_run_illustrations(n, c, abar, acc_0, transcost);
+    sol = bench_run_illustrations(n, c, abar, acc_0, transcost);
+    stats = man_time_it(f, 3, 0);
+    write_benchmark(households_fid_bench, n, c, abar, acc_0, transcost, stats.mean, stats.std, stats.se);
+    write_avg_price(households_fid_res, n, c, abar, acc_0, transcost, sol);
+end
+
+age_fid_bench = '../../fut2/matlab_eqb_age.dat';
+age_fid_res = '../../fut2/matlab_eqb_res_age.dat';
+
+fid = fopen(age_fid_bench, 'w');
+fclose(fid);
+fid2 = fopen(age_fid_res, 'w');
+fclose(fid2);
+
+n = 2;
+for abar = 10:5:35
+    f = @() bench_run_illustrations(n, c, abar, acc_0, transcost);
+    sol = bench_run_illustrations(n, c, abar, acc_0, transcost);
+    stats = man_time_it(f, 3, 0);
+    write_benchmark(age_fid_bench, n, c, abar, acc_0, transcost, stats.mean, stats.std, stats.se);
+    write_avg_price(age_fid_res, n, c, abar, acc_0, transcost, sol);
+end
 
 function [t,sol] = time_bench_run(n, c, abar, acc_0, transcost)
 
@@ -49,9 +108,6 @@ function stats = man_time_it(f, num_repeats, num_warmups)
 
 end
 
-t = time_bench_run(2,1,25,-5,0);
-disp(t);
-
 function write_benchmark(filename, n, c, abar, acc_0, transcost, runtime, std_dev, std_error)
 
     % Open file in append mode
@@ -82,60 +138,4 @@ function write_avg_price(filename, n, c, abar, acc_0, transcost, sol)
 
     % Close file
     fclose(fid);
-end
-
-n=2;
-abar = 25;
-transcost = 0;
-acc_0 = -5;
-
-cars_fid_bench = '..\..\fut2\matlab_eqb_cars.dat';
-cars_fid_res = '..\..\fut2\matlab_eqb_res_cars.dat';
-
-fid = fopen(cars_fid_bench, 'w');
-fclose(fid);
-fid2 = fopen(cars_fid_res, 'w');
-fclose(fid2);
-
-for c = 1:2:13
-    f = @() bench_run_illustrations(n, c, abar, acc_0, transcost);
-    sol = bench_run_illustrations(n, c, abar, acc_0, transcost);
-    stats = man_time_it(f, 3, 0);
-    write_benchmark(cars_fid_bench, n, c, abar, acc_0, transcost, stats.mean, stats.std, stats.se);
-    write_avg_price(cars_fid_res, n, c, abar, acc_0, transcost, sol);
-end
-
-c = 7;
-
-households_fid_bench = '..\..\fut2\matlab_eqb_households.dat';
-households_fid_res = '..\..\fut2\matlab_eqb_res_households.dat';
-
-fid = fopen(households_fid_bench, 'w');
-fclose(fid);
-fid2 = fopen(households_fid_res, 'w');
-fclose(fid2);
-
-for n = 2:1:6
-    f = @() bench_run_illustrations(n, c, abar, acc_0, transcost);
-    sol = bench_run_illustrations(n, c, abar, acc_0, transcost);
-    stats = man_time_it(f, 3, 0);
-    write_benchmark(households_fid_bench, n, c, abar, acc_0, transcost, stats.mean, stats.std, stats.se);
-    write_avg_price(households_fid_res, n, c, abar, acc_0, transcost, sol);
-end
-
-age_fid_bench = '..\..\fut2\matlab_eqb_age.dat';
-age_fid_res = '..\..\fut2\matlab_eqb_res_age.dat';
-
-fid = fopen(age_fid_bench, 'w');
-fclose(fid);
-fid2 = fopen(age_fid_res, 'w');
-fclose(fid2);
-
-n = 2;
-for abar = 10:5:35
-    f = @() bench_run_illustrations(n, c, abar, acc_0, transcost);
-    sol = bench_run_illustrations(n, c, abar, acc_0, transcost);
-    stats = man_time_it(f, 3, 0);
-    write_benchmark(age_fid_bench, n, c, abar, acc_0, transcost, stats.mean, stats.std, stats.se);
-    write_avg_price(age_fid_res, n, c, abar, acc_0, transcost, sol);
 end

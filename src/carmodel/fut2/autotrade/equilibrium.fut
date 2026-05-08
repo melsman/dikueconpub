@@ -155,6 +155,9 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let (demand, supply) = demand_supply_tau q_tau deltaK_diag deltaT_tau mp ccp_scrap_tau
         in map2 (map2 (\x y->R.(x-y))) demand supply
 
+    def ed_tau_from_ccp [n][c][Ax][ns][nd] (mp:mp[n][c][Ax][ns][nd]) (q_tau:[ns]t) (ccp:[ns][nd]t) (ccp_scrap_tau:[ns]t) : [c][Ax-1]t =
+        let (_, deltaK_diag, deltaT_tau) = trm.trade_transition mp ccp
+        in ed_tau q_tau deltaK_diag deltaT_tau mp ccp_scrap_tau
 
     ----------------------------------------------
     ------ Helper functions for derivatives ------
@@ -250,18 +253,30 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             )
         )
 
+    def ccp_scrap_dprice_ad [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) (p:trm.prices[c][Ax]) (tau:i64) : [c][Ax-1][ns]t =
+        let f = \p' -> trm.ccp_scrap_tau mp p' tau
+        in tabulate_2d c (Ax-1) (\j a ->
+            jvp f p (price_basis j (a+1))
+        )
+
     -----------------------------------------
     ------ Derivaties - bellman_d_price -----
     -----------------------------------------
 
 
-    def dbellman_prices_man [Ax][c][ns][nd] (ccp : [ns][nd]t) (du  : [c][Ax-1][ns][nd]t) : [c][Ax-1][ns]t =
+    def dbellman_prices_man [Ax][c][ns][nd] (ccp : [ns][nd]t) (du : [c][Ax-1][ns][nd]t) : [c][Ax-1][ns]t =
         tabulate_2d c (Ax-1) (\cartype age ->
             tabulate ns (\s ->
             reduce (\i j -> R.(i+j)) (R.i64 0)
                 (map2 (\i j -> R.(i*j)) ccp[s] du[cartype][age][s])
                 )
             )
+
+    def dbellman_prices_ad [Ax][n][c][ns][nd] (mp: mp[n][c][Ax][ns][nd]) (utils:trm.utility[ns][nd]) (tr:trm.transition[ns]) (ev: [ns]t) (du: [c][Ax-1][ns][nd]t) : [c][Ax-1][ns]t =
+        let f = \u -> trm.bellman mp u tr ev
+        in tabulate_2d c (Ax-1) (\ct age ->
+            jvp f utils du[ct][age]
+        )
 
     ----------------------------------------------------------------------------------
     ------ Derivaties - EV-fixed point dprice - derivative of the fived point EV -----
@@ -451,8 +466,14 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
     ------ Derivaties - ded_dprice - derivative of excess demand ------------
     -------------------------------------------------------------------------
 
+    def ded_dprice_ad [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) (ccp: [ns][nd]t) (dccp: [c][Ax-1][ns][nd]t)  (q: [ns]t)
+        (dq: [c][Ax-1][ns]t) (ccp_scrap: [ns]t) (dccp_scrap: [c][Ax-1][ns]t) : [c][Ax-1][c][Ax-1]t =
+         let g = \(q', ccp', ccp_scrap') -> ed_tau_from_ccp mp q' ccp' ccp_scrap'
+            in tabulate_2d c (Ax-1) (\ct age ->
+                jvp g (q, ccp, ccp_scrap) (dq[ct][age], dccp[ct][age], dccp_scrap[ct][age])
+            )
 
-    def ded_dprice [c][Ax][ns][nd] (ccp: [ns][nd]t) (dccp: [c][Ax-1][ns][nd]t)  (q: [ns]t)
+    def ded_dprice_man [c][Ax][ns][nd] (ccp: [ns][nd]t) (dccp: [c][Ax-1][ns][nd]t)  (q: [ns]t)
         (dq: [c][Ax-1][ns]t) (ccp_scrap: [ns]t) (dccp_scrap: [c][Ax-1][ns]t) : [c][Ax-1][c][Ax-1]t =
 
         tabulate_2d c (Ax-1) (\m_ct m_age ->
@@ -514,7 +535,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let (erg, erg_dprice) = ergodic_with_dprice ctp dctp
         let dccp_scrap = ccp_scrap_dprice_man mp p tau
 
-        in ded_dprice ccp dccp erg erg_dprice ccp_scrap dccp_scrap
+        in ded_dprice_man ccp dccp erg erg_dprice ccp_scrap dccp_scrap
 
     def ded_dprice_tau_man [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (tau: i64) (ev:[ns]t)
         (v:[ns][nd]t) (p:trm.prices[c][Ax]) : [c][Ax-1][c][Ax-1]t =
@@ -533,7 +554,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let (erg, erg_dprice) = ergodic_with_dprice ctp dctp
         let dccp_scrap = ccp_scrap_dprice_man mp p tau
 
-        in ded_dprice ccp dccp erg erg_dprice ccp_scrap dccp_scrap
+        in ded_dprice_man ccp dccp erg erg_dprice ccp_scrap dccp_scrap
 
     -------- Flattening function for testing --------
     def flatten_ded [c][Ax] (ded: [c][Ax-1][c][Ax-1]t) : [c*(Ax-1)][c*(Ax-1)]t =
@@ -548,7 +569,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             let f = trm.bellmanJ mp utils tr
             let param = dps.default
             let param = param with sa_max = sa_max
-            let {res=ev,jac=_,conv=_,iter_sa=sa_iters,iter_nk=nk_iters,rtrips=rtrips,tol=_} = dps.poly f ev0 param mp.bet
+            let {res=ev,jac=_,conv=_,iter_sa=sa_iters,iter_nk=nk_iters,rtrips=rtrips,tol=_} = dps.poly f ev0 param (R.i64 0)
             let (_, v) = trm.bellman0 mp utils tr ev
             in (ev, v, sa_iters, nk_iters, rtrips)
 
@@ -589,7 +610,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             let f = trm.bellmanJ mp utils tr
             let param = dps.default
             let param = param with sa_max = sa_max
-            let {res=ev,jac=_,conv=_,iter_sa=sa_iters,iter_nk=nk_iters,rtrips=rtrips,tol=_} = dps.poly f ev0 param mp.bet
+            let {res=ev,jac=_,conv=_,iter_sa=sa_iters,iter_nk=nk_iters,rtrips=rtrips,tol=_} = dps.poly f ev0 param (R.i64 0)
             let (_, v) = trm.bellman0 mp utils tr ev
             in (ev, v, sa_iters, nk_iters, rtrips)
 
@@ -779,7 +800,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let dctp = dctp_dprice_man mp tr dccp
         let (erg, erg_dprice) = ergodic_with_dprice ctp dctp
         let dccp_scrap = ccp_scrap_dprice_man mp p tau
-        in ded_dprice ccp dccp erg erg_dprice ccp_scrap dccp_scrap
+        in ded_dprice_man ccp dccp erg erg_dprice ccp_scrap dccp_scrap
 
     --- Hybrid: manual dv + manual dccp, AD dctp (isolates combination dv and dccp)
     def ded_dprice_tau_dv_dccp [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (tau: i64) (ev:[ns]t)
@@ -798,7 +819,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let dctp = dctp_dprices_from_du_dev mp tr utils ev du dev
         let (erg, erg_dprice) = ergodic_with_dprice ctp dctp
         let dccp_scrap = ccp_scrap_dprice_man mp p tau
-        in ded_dprice ccp dccp erg erg_dprice ccp_scrap dccp_scrap
+        in ded_dprice_man ccp dccp erg erg_dprice ccp_scrap dccp_scrap
 
     --- Wrapper using ded_dprice_tau_dctp_only
     def ed_ded_price_all_dctp_only [n][c][Ax][ns][nd] (mp:trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (p:trm.prices[c][Ax]) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t) =
