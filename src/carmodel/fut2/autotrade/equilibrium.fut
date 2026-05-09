@@ -569,7 +569,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             let f = trm.bellmanJ mp utils tr
             let param = dps.default
             let param = param with sa_max = sa_max
-            let {res=ev,jac=_,conv=_,iter_sa=sa_iters,iter_nk=nk_iters,rtrips=rtrips,tol=_} = dps.poly f ev0 param (R.i64 0)
+            let {res=ev,jac=_,conv=_,iter_sa=sa_iters,iter_nk=nk_iters,rtrips=rtrips,tol=_} = dps.poly f ev0 param (mp.bet)
             let (_, v) = trm.bellman0 mp utils tr ev
             in (ev, v, sa_iters, nk_iters, rtrips)
 
@@ -610,7 +610,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             let f = trm.bellmanJ mp utils tr
             let param = dps.default
             let param = param with sa_max = sa_max
-            let {res=ev,jac=_,conv=_,iter_sa=sa_iters,iter_nk=nk_iters,rtrips=rtrips,tol=_} = dps.poly f ev0 param (R.i64 0)
+            let {res=ev,jac=_,conv=_,iter_sa=sa_iters,iter_nk=nk_iters,rtrips=rtrips,tol=_} = dps.poly f ev0 param (mp.bet)
             let (_, v) = trm.bellman0 mp utils tr ev
             in (ev, v, sa_iters, nk_iters, rtrips)
 

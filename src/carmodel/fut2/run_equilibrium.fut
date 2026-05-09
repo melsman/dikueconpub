@@ -3,53 +3,19 @@ import "autotrade/trmodel"
 import "autotrade/equilibrium"
 import "lib/github.com/diku-dk/linalg/lu"
 
-module mk_run (R:real) = {
-
-  type t = R.t
-
-  module trm = trmodel R
-  module eqb = equilibrium R trm
-  module lu = mk_lu R
-
-  def newton_step [n][c][Ax][ns][nd]
-      (mp: trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (damp:t) (p: trm.prices[c][Ax]) (sa_iters_tot:[n]i64) (nk_iters_tot:[n]i64) 
-      (rtrips_tot: [n]i64): (trm.prices[c][Ax], [c][Ax-1]t, t, [n]i64, [n]i64, [n]i64) =
-    let (ed2d, ded4d, sa_iters, nk_iters, rtrips) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t, [n]i64, [n]i64, [n]i64) =
-      eqb.ed_ded_price_all mp sa_max p
-
-    let sa_iters_tot = map2 (\x y -> x + y) sa_iters sa_iters_tot
-    let nk_iters_tot = map2 (\x y -> x + y) nk_iters nk_iters_tot
-    let rtrips_tot = map2 (\x y -> x + y) rtrips rtrips_tot
-
-    let ed_flat  = flatten ed2d
-    let ded_flat = map flatten (flatten ded4d)
-    let blksz : i64 = 16
-    let dp       = lu.ols blksz ded_flat ed_flat
-    let dp2d : [c][Ax-1]t = unflatten dp
-
-    -- Ensure that prices do not go below scrap value.
-    let p_new : [c][Ax]t =
-      tabulate_2d c Ax (\ct a ->
-        if a == 0 then p[ct][0]
-        else let a' = a - 1
-             in R.(max (p[ct][a] - damp * dp2d[ct][a']) mp.pscrap[ct]))
-    let max_dp = reduce R.max (R.i64 0) (map R.abs dp)
-    in (p_new, ed2d, max_dp,  sa_iters_tot, nk_iters_tot, rtrips_tot)
-
-  def newton [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (p0: trm.prices[c][Ax]) (sa_max:i64) (damp:t) (tol:t) (max_iter:i64)
-      : (trm.prices[c][Ax], [c][Ax-1]t, t, i64, bool, [n]i64, [n]i64, [n]i64) =
-    let ed0 : [c][Ax-1]t = replicate c (replicate (Ax-1) (R.i64 0))
-    let start_iters = replicate n (0i64)
-    let (p, ed, max_dp, iter, sa_iters_tot, nk_iters_tot, rtrips_tot) =
-      loop (p, ed, max_dp, iter, sa_iters_tot, nk_iters_tot, rtrips_tot) = (p0, ed0, R.highest, 0i64, start_iters, start_iters, start_iters)
-      while iter < max_iter && R.(max_dp > tol) do
-        let (p', ed', max_dp', sa_iters_tot', nk_iters_tot', rtrips_tot') = newton_step mp sa_max damp p sa_iters_tot nk_iters_tot rtrips_tot
-        in (p', ed', max_dp', iter + 1, sa_iters_tot', nk_iters_tot', rtrips_tot')
-    in (p, ed, max_dp, iter, R.(max_dp <= tol), sa_iters_tot, nk_iters_tot, rtrips_tot)
-}
+import "run_equilibrium_module"
 
 module R = f64
-module r = mk_run R
+module trm = trmodel R
+module eqb = equilibrium R trm
+
+module ed_ded_default = {
+  module R   = R
+  module trm = trm
+  let ed_ded_price_all = eqb.ed_ded_price_all
+}
+
+module r = mk_run ed_ded_default
 
 --- Returns ed and flattened ded at the initial prices, before any Newton step.
 entry test_ed_ded (n:i64) (c:i64) (Ax:i64) (sa_max:i64) (transcost:R.t)
@@ -152,6 +118,7 @@ entry bench_solve (n:i64) (c:i64) (Ax:i64) (acc0:R.t) (transcost:R.t) : f64 =
 ---   iter       Newton iterations performed
 ---   conv       convergence flag
 ---   sa_tot, nk_tot, rtr_tot   per-household total SA / NK / round-trip counts
+
 entry validate_solve (n:i64) (c:i64) (Ax:i64) (acc0:R.t) (transcost:R.t)
     : ([c][Ax]f64, f64, f64, f64, f64, i64, bool, [n]i64, [n]i64, [n]i64) =
   let mum = tabulate n (\i -> if i == 0 then 0.1f64 else 0.3f64)

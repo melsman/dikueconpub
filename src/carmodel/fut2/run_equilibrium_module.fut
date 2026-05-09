@@ -24,11 +24,16 @@ module mk_run (E: ed_ded_function) = {
   module eqb = equilibrium R trm
   module lu = mk_lu R
 
+  def ed_ded_price_all [n][c][Ax][ns][nd]
+      (mp: trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (p: trm.prices[c][Ax])
+      : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t, [n]i64, [n]i64, [n]i64) =
+    E.ed_ded_price_all mp sa_max p
+
   def newton_step [n][c][Ax][ns][nd]
       (mp: trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (damp:t) (p: trm.prices[c][Ax]) (sa_iters_tot:[n]i64) (nk_iters_tot:[n]i64) 
       (rtrips_tot: [n]i64): (trm.prices[c][Ax], [c][Ax-1]t, t, [n]i64, [n]i64, [n]i64) =
     let (ed2d, ded4d, sa_iters, nk_iters, rtrips) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t, [n]i64, [n]i64, [n]i64) =
-      E.ed_ded_price_all mp sa_max p
+      ed_ded_price_all mp sa_max p
 
     let sa_iters_tot = map2 (\x y -> x + y) sa_iters sa_iters_tot
     let nk_iters_tot = map2 (\x y -> x + y) nk_iters nk_iters_tot
