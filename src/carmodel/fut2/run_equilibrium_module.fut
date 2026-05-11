@@ -27,7 +27,9 @@ module mk_run (E: ed_ded_function) = {
   def ed_ded_price_all [n][c][Ax][ns][nd]
       (mp: trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (p: trm.prices[c][Ax])
       : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t, [n]i64, [n]i64, [n]i64) =
-    E.ed_ded_price_all mp sa_max p
+    --- Using #[unsafe] to deal with a sink bug on the Futhark servers, which use an old Futhark version. 
+    --- Remove this once futhark servers get Futhark version 0.25.3, as the code compiles perfectly well on my local machine with that newer version.
+    #[unsafe] E.ed_ded_price_all mp sa_max p
 
   def newton_step [n][c][Ax][ns][nd]
       (mp: trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (damp:t) (p: trm.prices[c][Ax]) (sa_iters_tot:[n]i64) (nk_iters_tot:[n]i64) 
