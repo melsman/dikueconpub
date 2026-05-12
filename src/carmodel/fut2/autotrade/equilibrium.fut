@@ -116,7 +116,6 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         in initial_prices
 
 
-
     -----------------------------------
     --- Ergodic distribution of q -----
     -----------------------------------
