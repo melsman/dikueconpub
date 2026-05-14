@@ -289,7 +289,8 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             let eye = R.bool (i == j)
             in R.(eye - mp.bet * ctp[i,j]))
         let blksz : i64 = 16
-        in map (\row -> map (\elem -> lu.ols blksz par_mat elem) row) dbellman
+        let (L,U) = lu.lu2 blksz par_mat
+        in map (\row -> map (\elem -> lu.backsolve U (lu.forsolve L elem)) row) dbellman
 
     ---------------------------------------------------------------------------------
     ------ Derivaties - dv_dprice - derivative of state-dependent choice values -----
