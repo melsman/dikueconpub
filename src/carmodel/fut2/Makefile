@@ -8,6 +8,7 @@ EQB_DATA?=EQB_DATA_cars
 EQB_VARIANT:=$(EQB_DATA:EQB_DATA_%=%)
 SAVED_BENCH_DIR=saved_futhark_benchmarks
 SAVED_BENCH_PREFIX=$(basename $(RUN_EQUI))-$(VAL_NAME)-bench$(BENCH_RUNS)
+RUN_EQ_FUT_DEPS := autotrade/trmodel.fut autotrade/equilibrium.fut run_equilibrium_module.fut
 
 .PHONY: all
 all: test
@@ -47,6 +48,11 @@ futversion:
 
 %-u.exe: %.fut
 	$(FUTHARK) cuda -o $@ $<
+
+run_equilibrium%-c.exe: $(RUN_EQ_FUT_DEPS)
+run_equilibrium%-m.exe: $(RUN_EQ_FUT_DEPS)
+run_equilibrium%-o.exe: $(RUN_EQ_FUT_DEPS)
+run_equilibrium%-u.exe: $(RUN_EQ_FUT_DEPS)
 
 run_bellman-%-C.tm: run_bellman-c.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -e mainn -r 5 -t $@ > run_bellman-$*-c.out
@@ -195,18 +201,18 @@ EQB_M_FILES=$($(EQB_DATA):%=bench_solve-%-M.tmstats)
 EQB_O_FILES=$($(EQB_DATA):%=bench_solve-%-O.tmstats)
 EQB_U_FILES=$($(EQB_DATA):%=bench_solve-%-U.tmstats)
 
-#EQB_FILES=$(EQB_U_FILES) $(EQB_M_FILES) $(EQB_C_FILES)
+EQB_FILES=$(EQB_U_FILES) $(EQB_M_FILES) $(EQB_C_FILES)
 #EQB_FILES=$(EQB_O_FILES) $(EQB_M_FILES) $(EQB_C_FILES)
-EQB_FILES=$(EQB_M_FILES) $(EQB_C_FILES)
+#EQB_FILES=$(EQB_M_FILES) $(EQB_C_FILES)
 
 EQB_C_OUT=$($(EQB_DATA):%=run_equilibrium-%-c.out)
 EQB_M_OUT=$($(EQB_DATA):%=run_equilibrium-%-m.out)
 EQB_O_OUT=$($(EQB_DATA):%=run_equilibrium-%-o.out)
 EQB_U_OUT=$($(EQB_DATA):%=run_equilibrium-%-u.out)
 
-#EQB_OUT=$(EQB_U_OUT) $(EQB_M_OUT) $(EQB_C_OUT)
+EQB_OUT=$(EQB_U_OUT) $(EQB_M_OUT) $(EQB_C_OUT)
 #EQB_OUT=$(EQB_O_OUT) $(EQB_M_OUT) $(EQB_C_OUT)
-EQB_OUT=$(EQB_M_OUT) $(EQB_C_OUT)
+#EQB_OUT=$(EQB_M_OUT) $(EQB_C_OUT)
 
 bench_solve_$(EQB_VARIANT).dat: $(EQB_FILES)
 	rm -f $@
@@ -249,16 +255,16 @@ plot_eqb_all:
 # (override VAL_NAME to differentiate runs across machines/configurations).
 VAL_PREFIX=$(basename $(RUN_EQUI))-$(VAL_NAME)-validate_solve
 
-validation_files/$(VAL_PREFIX)-%-C.val: $(basename $(RUN_EQUI))-c.exe
+validation_files/$(VAL_PREFIX)-%-C.val: run_equilibrium-c.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -e validate_solve -r 1 > $@
 
-validation_files/$(VAL_PREFIX)-%-M.val: $(basename $(RUN_EQUI))-m.exe
+validation_files/$(VAL_PREFIX)-%-M.val: run_equilibrium-m.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -e validate_solve -r 1 > $@
 
-validation_files/$(VAL_PREFIX)-%-O.val: $(basename $(RUN_EQUI))-o.exe
+validation_files/$(VAL_PREFIX)-%-O.val: run_equilibrium-o.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -d $(GPU_DEVICE) -e validate_solve -r 1 > $@
 
-validation_files/$(VAL_PREFIX)-%-U.val: $(basename $(RUN_EQUI))-u.exe
+validation_files/$(VAL_PREFIX)-%-U.val: run_equilibrium-u.exe
 	echo "$*" | sed 's/-/ /g' | ./$< -d $(GPU_DEVICE) -e validate_solve -r 1 > $@
 
 EQB_VAL_C_FILES=$($(EQB_DATA):%=validation_files/$(VAL_PREFIX)-%-C.val)
@@ -267,9 +273,9 @@ EQB_VAL_O_FILES=$($(EQB_DATA):%=validation_files/$(VAL_PREFIX)-%-O.val)
 EQB_VAL_U_FILES=$($(EQB_DATA):%=validation_files/$(VAL_PREFIX)-%-U.val)
 
 # Default: c + m. Uncomment to also validate opencl / cuda backends.
-#EQB_VAL_FILES=$(EQB_VAL_U_FILES) $(EQB_VAL_M_FILES) $(EQB_VAL_C_FILES)
+EQB_VAL_FILES=$(EQB_VAL_U_FILES) $(EQB_VAL_M_FILES) $(EQB_VAL_C_FILES)
 #EQB_VAL_FILES=$(EQB_VAL_O_FILES) $(EQB_VAL_M_FILES) $(EQB_VAL_C_FILES)
-EQB_VAL_FILES=$(EQB_VAL_M_FILES) $(EQB_VAL_C_FILES)
+#EQB_VAL_FILES=$(EQB_VAL_M_FILES) $(EQB_VAL_C_FILES)
 
 .PHONY: validate_eqb
 validate_eqb: $(EQB_VAL_FILES)
@@ -279,6 +285,49 @@ validate_eqb_all:
 	$(MAKE) EQB_DATA=EQB_DATA_cars       VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) validate_eqb
 	$(MAKE) EQB_DATA=EQB_DATA_households VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) validate_eqb
 	$(MAKE) EQB_DATA=EQB_DATA_age        VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) validate_eqb
+
+# Copy saved matlab benchmarks for a given TAG into the active matlab_eqb_*.dat files.
+# Usage: make load_matlab_eqb TAG=local
+# For each variant in {age, cars, households}, copies
+#   saved_matlab_benchmarks/matlab_eqb_<variant>_$(TAG).dat -> matlab_eqb_<variant>.dat
+# if the source file exists; otherwise leaves the target untouched.
+.PHONY: load_matlab_eqb
+load_matlab_eqb:
+	@if [ -z "$(TAG)" ]; then \
+		echo "error: TAG is required, e.g. make load_matlab_eqb TAG=local" ; \
+		exit 1 ; \
+	fi
+	@for variant in age cars households ; do \
+		src="saved_matlab_benchmarks/matlab_eqb_$${variant}_$(TAG).dat" ; \
+		dst="matlab_eqb_$${variant}.dat" ; \
+		if [ -f "$$src" ]; then \
+			echo "cp $$src -> $$dst" ; \
+			cp "$$src" "$$dst" ; \
+		else \
+			echo "skip: $$src (not found)" ; \
+		fi ; \
+	done
+
+# Copy plot_eqb_<variant>.pdf to images2/plot_eqb_<variant>_<TAG>.pdf for a given TAG.
+# Usage: make save_plot_eqb TAG=local
+# Creates images2/ if needed. Skips variants whose source pdf doesn't exist.
+.PHONY: save_plot_eqb
+save_plot_eqb:
+	@if [ -z "$(TAG)" ]; then \
+		echo "error: TAG is required, e.g. make save_plot_eqb TAG=local" ; \
+		exit 1 ; \
+	fi
+	@mkdir -p images2
+	@for variant in age cars households ; do \
+		src="plot_eqb_$${variant}.pdf" ; \
+		dst="images2/plot_eqb_$${variant}_$(TAG).pdf" ; \
+		if [ -f "$$src" ]; then \
+			echo "cp $$src -> $$dst" ; \
+			cp "$$src" "$$dst" ; \
+		else \
+			echo "skip: $$src (not found)" ; \
+		fi ; \
+	done
 
 # =========================================================
 # Equilibrium benchmark with simple_prices initial guess
