@@ -166,6 +166,17 @@ plot2.pdf: plot2-noo.gp data2.dat matlab2.dat
 # =========================================================
 # Equilibrium benchmark (matches MATLAB bench_run_illustrations_test)
 # Format: n-c-Ax-acc0-transcost
+#
+# Targets:
+#   bench_solve_<variant>.dat         time stats per (input, backend) row
+#   bench_solve_res_<variant>.dat     avg-price diagnostic per input
+#   bench_solve_all                   builds both + saves a snapshot under saved_futhark_benchmarks/
+#   plot_eqb_<variant>.pdf            gnuplot of the dat against MATLAB reference
+#   plot_eqb_all                      sub-makes plot_eqb_{cars,households,age}.pdf
+# <variant> is one of cars / households / age, selected by EQB_DATA=EQB_DATA_<variant>.
+#
+# Usage:
+#   make RUN_EQUI=run_equilibrium_man.fut VAL_NAME=local BENCH_RUNS=3 plot_eqb_all
 # =========================================================
 
 run_equilibrium-c.exe: $(RUN_EQUI)
@@ -195,6 +206,9 @@ bench_solve-%-U.tm: run_equilibrium-u.exe
 EQB_DATA_cars = 2-1-25-5-0 2-3-25-5-0 2-5-25-5-0 2-7-25-5-0 2-9-25-5-0 2-11-25-5-0 2-13-25-5-0
 EQB_DATA_households = 2-7-25-5-0 3-7-25-5-0 4-7-25-5-0 5-7-25-5-0 6-7-25-5-0
 EQB_DATA_age = 2-7-10-5-0 2-7-15-5-0 2-7-20-5-0 2-7-25-5-0 2-7-30-5-0 2-7-35-5-0
+
+# Note - these can only be run independently, and not part as _all
+EQB_DATA_cars_long = 2-1-25-5-0 2-5-25-5-0 2-9-25-5-0 2-13-25-5-0 2-17-25-5-0 2-21-25-5-0
 
 EQB_C_FILES=$($(EQB_DATA):%=bench_solve-%-C.tmstats)
 EQB_M_FILES=$($(EQB_DATA):%=bench_solve-%-M.tmstats)
@@ -246,9 +260,24 @@ plot_eqb_all:
 	$(MAKE) EQB_DATA=EQB_DATA_households VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) BENCH_RUNS=$(BENCH_RUNS) plot_eqb_households.pdf
 	$(MAKE) EQB_DATA=EQB_DATA_age        VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) BENCH_RUNS=$(BENCH_RUNS) plot_eqb_age.pdf
 
+.PHONY: plot_eqb_cars_long
+plot_eqb_cars_long:
+	$(MAKE) EQB_DATA=EQB_DATA_cars_long  VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) BENCH_RUNS=$(BENCH_RUNS) plot_eqb_cars_long.pdf
+
 # =========================================================
 # Equilibrium validation
 # Format: n-c-Ax-acc0-transcost
+#
+# Targets:
+#   validation_files/<VAL_PREFIX>-<input>-<backend>.val
+#                          one validation output per (input, backend)
+#   validate_eqb           builds .val files for inputs in $(EQB_DATA)
+#   validate_eqb_all       sub-makes validate_eqb for cars / households / age
+# VAL_PREFIX encodes $(RUN_EQUI) and $(VAL_NAME); use VAL_NAME to tag runs
+# across machines or configurations.
+#
+# Usage:
+#   make RUN_EQUI=run_equilibrium_man.fut VAL_NAME=local validate_eqb_all
 # =========================================================
 
 # Filename prefix encodes which RUN_EQUI was used and the VAL_NAME tag
@@ -286,6 +315,10 @@ validate_eqb_all:
 	$(MAKE) EQB_DATA=EQB_DATA_households VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) validate_eqb
 	$(MAKE) EQB_DATA=EQB_DATA_age        VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) validate_eqb
 
+.PHONY: validate_eqb_cars_long
+validate_eqb_cars_long:
+	$(MAKE) EQB_DATA=EQB_DATA_cars_long  VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) validate_eqb
+
 # Copy saved matlab benchmarks for a given TAG into the active matlab_eqb_*.dat files.
 # Usage: make load_matlab_eqb TAG=local
 # For each variant in {age, cars, households}, copies
@@ -297,7 +330,7 @@ load_matlab_eqb:
 		echo "error: TAG is required, e.g. make load_matlab_eqb TAG=local" ; \
 		exit 1 ; \
 	fi
-	@for variant in age cars households ; do \
+	@for variant in age cars cars_long households ; do \
 		src="saved_matlab_benchmarks/matlab_eqb_$${variant}_$(TAG).dat" ; \
 		dst="matlab_eqb_$${variant}.dat" ; \
 		if [ -f "$$src" ]; then \
@@ -318,9 +351,9 @@ save_plot_eqb:
 		exit 1 ; \
 	fi
 	@mkdir -p images2
-	@for variant in age cars households ; do \
+	@for variant in age cars cars_long households ; do \
 		src="plot_eqb_$${variant}.pdf" ; \
-		dst="images2/plot_eqb_$${variant}_$(TAG).pdf" ; \
+		dst="images_post/plot_eqb_$${variant}_$(TAG).pdf" ; \
 		if [ -f "$$src" ]; then \
 			echo "cp $$src -> $$dst" ; \
 			cp "$$src" "$$dst" ; \
@@ -332,6 +365,15 @@ save_plot_eqb:
 # =========================================================
 # Equilibrium benchmark with simple_prices initial guess
 # Format: n-c-Ax-acc0-transcost
+#
+# Targets:
+#   bench_solve_sp_<variant>.dat       time stats per (input, backend) row
+#   bench_solve_sp_res_<variant>.dat   avg-price diagnostic per input
+#   bench_solve_sp_all                 builds both for $(EQB_DATA)
+# <variant> is selected by EQB_DATA=EQB_DATA_<variant>.
+#
+# Usage:
+#   make RUN_EQUI=run_equilibrium_man.fut VAL_NAME=local BENCH_RUNS=3 EQB_DATA=EQB_DATA_cars bench_solve_sp_all
 # =========================================================
 
 bench_solve_sp-%-C.tm: run_equilibrium-c.exe
@@ -364,6 +406,10 @@ bench_solve_sp_res_$(EQB_VARIANT).dat: $(EQB_SP_C_OUT)
 .PHONY: bench_solve_sp_all
 bench_solve_sp_all: bench_solve_sp_$(EQB_VARIANT).dat bench_solve_sp_res_$(EQB_VARIANT).dat
 
+.PHONY: bench_solve_sp_cars_long
+bench_solve_sp_cars_long:
+	$(MAKE) EQB_DATA=EQB_DATA_cars_long  VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) BENCH_RUNS=$(BENCH_RUNS) bench_solve_sp_all
+
 .PHONY: ad-back-c
 ad-back-c:
 	$(FUTHARK) c run_bellman_ad.fut
@@ -378,3 +424,50 @@ back-opencl:
 ad-back-opencl:
 	$(FUTHARK) opencl run_bellman_ad.fut
 	echo 10 25 200 | ./run_bellman_ad -d $(GPU_DEVICE) -r 5 -t /dev/stderr
+
+# =========================================================
+# Alternate equilibrium benchmark pipeline using `futhark bench`
+#
+# Files procduces as an '_fb' suffix.
+#
+# Targets:
+#   fb_bench_eqb     (phony) build the multicore + c JSON
+#   fb_bench_eqb_o   (phony) build the opencl JSON
+#   fb_bench_eqb_u   (phony) build the cuda JSON
+#
+# Output is raw `futhark bench --json` left at
+#   $(FB_BENCH_DIR)/$(basename $(RUN_EQUI))-$(VAL_NAME)-fb$(FB_BENCH_RUNS)-<backend>.json.
+# The inputs run are declared by the 'bench_solve' headers in  $(RUN_EQUI)
+#
+# Usage:
+#   make RUN_EQUI=run_equilibrium_man.fut VAL_NAME=local FB_BENCH_RUNS=10 fb_bench_eqb
+# =========================================================
+
+FB_BENCH_RUNS ?= $(BENCH_RUNS)
+FB_BENCH_DIR  := saved_futhark_bench_json
+FB_PREFIX     := $(basename $(RUN_EQUI))-$(VAL_NAME)-fb$(FB_BENCH_RUNS)
+FB_C_JSON      = $(FB_BENCH_DIR)/$(FB_PREFIX)-c.json
+FB_M_JSON      = $(FB_BENCH_DIR)/$(FB_PREFIX)-multicore.json
+FB_O_JSON      = $(FB_BENCH_DIR)/$(FB_PREFIX)-opencl.json
+FB_U_JSON      = $(FB_BENCH_DIR)/$(FB_PREFIX)-cuda.json
+
+$(FB_C_JSON): $(RUN_EQUI) $(RUN_EQ_FUT_DEPS)
+	mkdir -p $(FB_BENCH_DIR)
+	$(FUTHARK) bench --backend=c --entry-point=bench_solve --runs=$(FB_BENCH_RUNS) --json=$@ $<
+
+$(FB_M_JSON): $(RUN_EQUI) $(RUN_EQ_FUT_DEPS)
+	mkdir -p $(FB_BENCH_DIR)
+	$(FUTHARK) bench --backend=multicore --entry-point=bench_solve --runs=$(FB_BENCH_RUNS) --json=$@ $<
+
+$(FB_O_JSON): $(RUN_EQUI) $(RUN_EQ_FUT_DEPS)
+	mkdir -p $(FB_BENCH_DIR)
+	$(FUTHARK) bench --backend=opencl --entry-point=bench_solve --runs=$(FB_BENCH_RUNS) -d $(GPU_DEVICE) --json=$@ $<
+
+$(FB_U_JSON): $(RUN_EQUI) $(RUN_EQ_FUT_DEPS)
+	mkdir -p $(FB_BENCH_DIR)
+	$(FUTHARK) bench --backend=cuda --entry-point=bench_solve --runs=$(FB_BENCH_RUNS) -d $(GPU_DEVICE) --json=$@ $<
+
+.PHONY: fb_bench_eqb fb_bench_eqb_o fb_bench_eqb_u
+fb_bench_eqb:   $(FB_M_JSON) $(FB_C_JSON)
+fb_bench_eqb_o: $(FB_O_JSON)
+fb_bench_eqb_u: $(FB_U_JSON)

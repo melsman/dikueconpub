@@ -30,7 +30,7 @@ methods (Static)
     %   abar_spp{tau, j}  : optimal scrap dates for consumer types tau and car types j 
     %   p_spp{tau, j}     : (Shadow) Price function of social planner (abar+1 x 1). 
     %   W_spp{tau, j}     : Value function of social planner (abar+1 x 1) 
-    %                       p_spp(i, j) includes new price and scrap price as first and last element   
+    %                          p_spp(i, j) includes new price and scrap price as first and last element   
     %
     %  John Rust, Georgetown University January 2019
 

@@ -43,6 +43,14 @@ def solve_nk [n][c][Ax][ns][nd] (mp:trm.mp [n][c][Ax][ns][nd]) (p0: trm.prices[c
   in (p, ed, max_dp, iter, conv, sa_iters_tot, nk_iters_tot, rtrips_tot)
 
 --- Benchmarking format: n-c-Ax-acc0-transcost (acc0 is positive, negated inside)
+-- ==
+-- entry: bench_solve
+-- input { 2i64 1i64 25i64 5f64 0f64 }
+-- input { 2i64 5i64 25i64 5f64 0f64 }
+-- input { 2i64 9i64 25i64 5f64 0f64 }
+-- input { 2i64 13i64 25i64 5f64 0f64 }
+-- input { 2i64 17i64 25i64 5f64 0f64 }
+-- input { 2i64 21i64 25i64 5f64 0f64 }
 entry bench_solve (n:i64) (c:i64) (Ax:i64) (acc0:R.t) (transcost:R.t) : f64 =
   let mum = tabulate n (\i -> if i == 0 then 0.1f64 else 0.3f64)
   let pnew = tabulate c (\i -> if i == 0 then 200.0f64 else 260.0f64)

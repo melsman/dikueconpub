@@ -23,11 +23,29 @@ fid2 = fopen(cars_fid_res, 'w');
 fclose(fid2);
 
 for c = 1:2:13
+    fprintf('n=%d c=%d Ax=%d acc_0=%g transcost=%g\n', n, c, abar, acc_0, transcost);
     f = @() bench_run_illustrations(n, c, abar, acc_0, transcost);
     sol = bench_run_illustrations(n, c, abar, acc_0, transcost);
-    stats = man_time_it(f, 3, 0);
+    stats = man_time_it(f, 10, 3);
     write_benchmark(cars_fid_bench, n, c, abar, acc_0, transcost, stats.mean, stats.std, stats.se);
     write_avg_price(cars_fid_res, n, c, abar, acc_0, transcost, sol);
+end
+
+cars_long_fid_bench = '../../fut2/matlab_eqb_cars_long.dat';
+cars_long_fid_res = '../../fut2/matlab_eqb_res_cars_long.dat';
+
+fid = fopen(cars_long_fid_bench, 'w');
+fclose(fid);
+fid2 = fopen(cars_long_fid_res, 'w');
+fclose(fid2);
+
+for c = 1:4:23
+    fprintf('n=%d c=%d Ax=%d acc_0=%g transcost=%g\n', n, c, abar, acc_0, transcost);
+    f = @() bench_run_illustrations(n, c, abar, acc_0, transcost);
+    sol = bench_run_illustrations(n, c, abar, acc_0, transcost);
+    stats = man_time_it(f, 5, 1);
+    write_benchmark(cars_long_fid_bench, n, c, abar, acc_0, transcost, stats.mean, stats.std, stats.se);
+    write_avg_price(cars_long_fid_res, n, c, abar, acc_0, transcost, sol);
 end
 
 c = 7;
@@ -41,9 +59,10 @@ fid2 = fopen(households_fid_res, 'w');
 fclose(fid2);
 
 for n = 2:1:6
+    fprintf('n=%d c=%d Ax=%d acc_0=%g transcost=%g\n', n, c, abar, acc_0, transcost);
     f = @() bench_run_illustrations(n, c, abar, acc_0, transcost);
     sol = bench_run_illustrations(n, c, abar, acc_0, transcost);
-    stats = man_time_it(f, 3, 0);
+    stats = man_time_it(f, 10, 3);
     write_benchmark(households_fid_bench, n, c, abar, acc_0, transcost, stats.mean, stats.std, stats.se);
     write_avg_price(households_fid_res, n, c, abar, acc_0, transcost, sol);
 end
@@ -58,9 +77,10 @@ fclose(fid2);
 
 n = 2;
 for abar = 10:5:35
+    fprintf('n=%d c=%d Ax=%d acc_0=%g transcost=%g\n', n, c, abar, acc_0, transcost);
     f = @() bench_run_illustrations(n, c, abar, acc_0, transcost);
     sol = bench_run_illustrations(n, c, abar, acc_0, transcost);
-    stats = man_time_it(f, 3, 0);
+    stats = man_time_it(f, 10, 3);
     write_benchmark(age_fid_bench, n, c, abar, acc_0, transcost, stats.mean, stats.std, stats.se);
     write_avg_price(age_fid_res, n, c, abar, acc_0, transcost, sol);
 end
@@ -85,12 +105,14 @@ function stats = man_time_it(f, num_repeats, num_warmups)
     % Warm-up runs
     for k = 1:num_warmups
         f();
+        fprintf('  warmup %d of %d\n', k, num_warmups);
     end
 
     % Timed runs
     times = zeros(num_repeats, 1);
 
     for k = 1:num_repeats
+        fprintf('  run %d of %d\n', k, num_repeats);
         tic;
         f();
         times(k) = toc;

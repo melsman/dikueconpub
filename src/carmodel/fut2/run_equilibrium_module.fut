@@ -53,17 +53,17 @@ module mk_run (E: ed_ded_function) = {
         if a == 0 then p[ct][0]
         else let a' = a - 1
              in R.(max (p[ct][a] - damp * dp2d[ct][a']) mp.pscrap[ct]))
-    let max_dp = reduce R.max (R.i64 0) (map R.abs dp)
-    in (p_new, ed2d, max_dp,  sa_iters_tot, nk_iters_tot, rtrips_tot)
+    let max_ed = reduce R.max (R.i64 0) (map R.abs ed_flat)
+    in (p_new, ed2d, max_ed, sa_iters_tot, nk_iters_tot, rtrips_tot)
 
   def newton [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (p0: trm.prices[c][Ax]) (sa_max:i64) (damp:t) (tol:t) (max_iter:i64)
       : (trm.prices[c][Ax], [c][Ax-1]t, t, i64, bool, [n]i64, [n]i64, [n]i64) =
     let ed0 : [c][Ax-1]t = replicate c (replicate (Ax-1) (R.i64 0))
     let start_iters = replicate n (0i64)
-    let (p, ed, max_dp, iter, sa_iters_tot, nk_iters_tot, rtrips_tot) =
-      loop (p, ed, max_dp, iter, sa_iters_tot, nk_iters_tot, rtrips_tot) = (p0, ed0, R.highest, 0i64, start_iters, start_iters, start_iters)
-      while iter < max_iter && R.(max_dp > tol) do
-        let (p', ed', max_dp', sa_iters_tot', nk_iters_tot', rtrips_tot') = newton_step mp sa_max damp p sa_iters_tot nk_iters_tot rtrips_tot
-        in (p', ed', max_dp', iter + 1, sa_iters_tot', nk_iters_tot', rtrips_tot')
-    in (p, ed, max_dp, iter, R.(max_dp <= tol), sa_iters_tot, nk_iters_tot, rtrips_tot)
+    let (p, ed, max_ed, iter, sa_iters_tot, nk_iters_tot, rtrips_tot) =
+      loop (p, ed, max_ed, iter, sa_iters_tot, nk_iters_tot, rtrips_tot) = (p0, ed0, R.highest, 0i64, start_iters, start_iters, start_iters)
+      while iter < max_iter && R.(max_ed > tol) do
+        let (p', ed', max_ed', sa_iters_tot', nk_iters_tot', rtrips_tot') = newton_step mp sa_max damp p sa_iters_tot nk_iters_tot rtrips_tot
+        in (p', ed', max_ed', iter + 1, sa_iters_tot', nk_iters_tot', rtrips_tot')
+    in (p, ed, max_ed, iter, R.(max_ed <= tol), sa_iters_tot, nk_iters_tot, rtrips_tot)
 }
