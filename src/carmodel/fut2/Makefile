@@ -209,24 +209,31 @@ EQB_DATA_age = 2-7-10-5-0 2-7-15-5-0 2-7-20-5-0 2-7-25-5-0 2-7-30-5-0 2-7-35-5-0
 
 # Note - these can only be run independently, and not part as _all
 EQB_DATA_cars_long = 2-1-25-5-0 2-5-25-5-0 2-9-25-5-0 2-13-25-5-0 2-17-25-5-0 2-21-25-5-0
+EQB_DATA_cars_longer = 2-1-25-5-0 2-5-25-5-0 2-9-25-5-0 2-13-25-5-0 2-17-25-5-0 2-21-25-5-0 2-17-25-5-0 2-25-25-5-0 2-17-25-5-0 2-29-25-5-0 2-17-25-5-0 2-33-25-5-0
+EQB_DATA_cars_longest = 2-40-25-5-0 2-45-25-5-0 2-50-25-5-0
 
 EQB_C_FILES=$($(EQB_DATA):%=bench_solve-%-C.tmstats)
 EQB_M_FILES=$($(EQB_DATA):%=bench_solve-%-M.tmstats)
 EQB_O_FILES=$($(EQB_DATA):%=bench_solve-%-O.tmstats)
 EQB_U_FILES=$($(EQB_DATA):%=bench_solve-%-U.tmstats)
 
-EQB_FILES=$(EQB_U_FILES) $(EQB_M_FILES) $(EQB_C_FILES)
+
+#EQB_FILES=$(EQB_U_FILES) $(EQB_M_FILES) $(EQB_C_FILES)
 #EQB_FILES=$(EQB_O_FILES) $(EQB_M_FILES) $(EQB_C_FILES)
+EQB_FILES=$(EQB_M_FILES) $(EQB_U_FILES)
 #EQB_FILES=$(EQB_M_FILES) $(EQB_C_FILES)
+#EQB_FILES= $(EQB_C_FILES)
 
 EQB_C_OUT=$($(EQB_DATA):%=run_equilibrium-%-c.out)
 EQB_M_OUT=$($(EQB_DATA):%=run_equilibrium-%-m.out)
 EQB_O_OUT=$($(EQB_DATA):%=run_equilibrium-%-o.out)
 EQB_U_OUT=$($(EQB_DATA):%=run_equilibrium-%-u.out)
 
-EQB_OUT=$(EQB_U_OUT) $(EQB_M_OUT) $(EQB_C_OUT)
+#EQB_OUT=$(EQB_U_OUT) $(EQB_M_OUT) $(EQB_C_OUT)
 #EQB_OUT=$(EQB_O_OUT) $(EQB_M_OUT) $(EQB_C_OUT)
+EQB_OUT=$(EQB_M_OUT) $(EQB_U_OUT)
 #EQB_OUT=$(EQB_M_OUT) $(EQB_C_OUT)
+#EQB_OUT= $(EQB_C_OUT)
 
 bench_solve_$(EQB_VARIANT).dat: $(EQB_FILES)
 	rm -f $@
@@ -251,7 +258,7 @@ bench_solve_all: bench_solve_$(EQB_VARIANT).dat \
                  bench_solve_res_$(EQB_VARIANT).dat \
                  $(SAVED_BENCH_DIR)/$(SAVED_BENCH_PREFIX)-$(EQB_VARIANT).dat
 
-plot_eqb_$(EQB_VARIANT).pdf: plot_eqb_$(EQB_VARIANT).gp bench_solve_$(EQB_VARIANT).dat matlab_eqb_$(EQB_VARIANT).dat $(SAVED_BENCH_DIR)/$(SAVED_BENCH_PREFIX)-$(EQB_VARIANT).dat
+plot_eqb_$(EQB_VARIANT).pdf: plot_eqb_$(EQB_VARIANT).gp bench_solve_$(EQB_VARIANT).dat $(wildcard matlab_eqb_$(EQB_VARIANT).dat) $(SAVED_BENCH_DIR)/$(SAVED_BENCH_PREFIX)-$(EQB_VARIANT).dat
 	gnuplot -e "load \"$<\""
 
 .PHONY: plot_eqb_all
@@ -263,6 +270,14 @@ plot_eqb_all:
 .PHONY: plot_eqb_cars_long
 plot_eqb_cars_long:
 	$(MAKE) EQB_DATA=EQB_DATA_cars_long  VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) BENCH_RUNS=$(BENCH_RUNS) plot_eqb_cars_long.pdf
+
+.PHONY: plot_eqb_cars_longer
+plot_eqb_cars_longer:
+	$(MAKE) EQB_DATA=EQB_DATA_cars_longer VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) BENCH_RUNS=$(BENCH_RUNS) plot_eqb_cars_longer.pdf
+
+.PHONY: plot_eqb_cars_longest
+plot_eqb_cars_longest:
+	$(MAKE) EQB_DATA=EQB_DATA_cars_longest VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) BENCH_RUNS=$(BENCH_RUNS) plot_eqb_cars_longest.pdf
 
 # =========================================================
 # Equilibrium validation
@@ -302,9 +317,11 @@ EQB_VAL_O_FILES=$($(EQB_DATA):%=validation_files/$(VAL_PREFIX)-%-O.val)
 EQB_VAL_U_FILES=$($(EQB_DATA):%=validation_files/$(VAL_PREFIX)-%-U.val)
 
 # Default: c + m. Uncomment to also validate opencl / cuda backends.
-EQB_VAL_FILES=$(EQB_VAL_U_FILES) $(EQB_VAL_M_FILES) $(EQB_VAL_C_FILES)
+#EQB_VAL_FILES=$(EQB_VAL_U_FILES) $(EQB_VAL_M_FILES) $(EQB_VAL_C_FILES)
 #EQB_VAL_FILES=$(EQB_VAL_O_FILES) $(EQB_VAL_M_FILES) $(EQB_VAL_C_FILES)
-#EQB_VAL_FILES=$(EQB_VAL_M_FILES) $(EQB_VAL_C_FILES)
+#EQB_VAL_FILES =$(EQB_VAL_U_FILES) $(EQB_VAL_M_FILES)
+EQB_VAL_FILES=$(EQB_VAL_M_FILES) $(EQB_VAL_C_FILES)
+#EQB_VAL_FILES= $(EQB_VAL_C_FILES)
 
 .PHONY: validate_eqb
 validate_eqb: $(EQB_VAL_FILES)
@@ -318,6 +335,14 @@ validate_eqb_all:
 .PHONY: validate_eqb_cars_long
 validate_eqb_cars_long:
 	$(MAKE) EQB_DATA=EQB_DATA_cars_long  VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) validate_eqb
+
+.PHONY: validate_eqb_cars_longer
+validate_eqb_cars_longer:
+	$(MAKE) EQB_DATA=EQB_DATA_cars_longer VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) validate_eqb
+
+.PHONY: validate_eqb_cars_longest
+validate_eqb_cars_longest:
+	$(MAKE) EQB_DATA=EQB_DATA_cars_longest VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) validate_eqb
 
 # Copy saved matlab benchmarks for a given TAG into the active matlab_eqb_*.dat files.
 # Usage: make load_matlab_eqb TAG=local
@@ -351,7 +376,7 @@ save_plot_eqb:
 		exit 1 ; \
 	fi
 	@mkdir -p images2
-	@for variant in age cars cars_long households ; do \
+	@for variant in age cars cars_long cars_longer households ; do \
 		src="plot_eqb_$${variant}.pdf" ; \
 		dst="images_post/plot_eqb_$${variant}_$(TAG).pdf" ; \
 		if [ -f "$$src" ]; then \
@@ -410,6 +435,10 @@ bench_solve_sp_all: bench_solve_sp_$(EQB_VARIANT).dat bench_solve_sp_res_$(EQB_V
 bench_solve_sp_cars_long:
 	$(MAKE) EQB_DATA=EQB_DATA_cars_long  VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) BENCH_RUNS=$(BENCH_RUNS) bench_solve_sp_all
 
+.PHONY: bench_solve_sp_cars_longer
+bench_solve_sp_cars_longer:
+	$(MAKE) EQB_DATA=EQB_DATA_cars_longer VAL_NAME=$(VAL_NAME) RUN_EQUI=$(RUN_EQUI) BENCH_RUNS=$(BENCH_RUNS) bench_solve_sp_all
+
 .PHONY: ad-back-c
 ad-back-c:
 	$(FUTHARK) c run_bellman_ad.fut
@@ -461,13 +490,112 @@ $(FB_M_JSON): $(RUN_EQUI) $(RUN_EQ_FUT_DEPS)
 
 $(FB_O_JSON): $(RUN_EQUI) $(RUN_EQ_FUT_DEPS)
 	mkdir -p $(FB_BENCH_DIR)
-	$(FUTHARK) bench --backend=opencl --entry-point=bench_solve --runs=$(FB_BENCH_RUNS) -d $(GPU_DEVICE) --json=$@ $<
+	$(FUTHARK) bench --backend=opencl --entry-point=bench_solve --runs=$(FB_BENCH_RUNS) --pass-option=-d$(GPU_DEVICE) --json=$@ $<
 
 $(FB_U_JSON): $(RUN_EQUI) $(RUN_EQ_FUT_DEPS)
 	mkdir -p $(FB_BENCH_DIR)
-	$(FUTHARK) bench --backend=cuda --entry-point=bench_solve --runs=$(FB_BENCH_RUNS) -d $(GPU_DEVICE) --json=$@ $<
+	$(FUTHARK) bench --backend=cuda --entry-point=bench_solve --runs=$(FB_BENCH_RUNS) --pass-option=-d$(GPU_DEVICE) --json=$@ $<
 
 .PHONY: fb_bench_eqb fb_bench_eqb_o fb_bench_eqb_u
 fb_bench_eqb:   $(FB_M_JSON) $(FB_C_JSON)
 fb_bench_eqb_o: $(FB_O_JSON)
 fb_bench_eqb_u: $(FB_U_JSON)
+
+# =========================================================
+# Profile a single (spec, backend) combination via `futhark bench -P`
+# followed by `futhark profile` to expand the JSON into per-event files.
+#
+# Inputs:
+#   SPEC         spec basename (looks up spec_files/<SPEC>_spec.fut)
+#   BACKEND      c | multicore | opencl | cuda  (default: multicore)
+#   RUN_EQUI     the .fut to profile          (default: run_equilibrium.fut)
+#   VAL_NAME     tag for the run              (default: default)
+#   PROFILE_RUNS --runs= passed to futhark bench (default: 1)
+#
+# Outputs:
+#   bench_jsons/<SPEC>_spec-<basename RUN_EQUI>-<VAL_NAME>-<BACKEND>.json
+#   profiling_results/<SPEC>_spec-<basename RUN_EQUI>-<VAL_NAME>-<BACKEND>.prof/
+#   profiling_results/<SPEC>_spec-<basename RUN_EQUI>-<VAL_NAME>-<BACKEND>.by-source.txt
+#
+# Usage:
+#   make profile_eqb SPEC=3 BACKEND=multicore VAL_NAME=local
+#   make profile_eqb SPEC=9 BACKEND=cuda VAL_NAME=futhark01 RUN_EQUI=run_equilibrium_man.fut
+#   make profile_eqb SPEC=3 ... PROFILE_TOP=50
+# =========================================================
+
+BACKEND      ?= multicore
+SPEC         ?= 3
+PROFILE_RUNS ?= 1
+PROFILE_TOP  ?= 30
+PROFILE_BASE  = $(SPEC)_spec-$(basename $(RUN_EQUI))-$(VAL_NAME)-$(BACKEND)
+PROFILE_JSON  = bench_jsons/$(PROFILE_BASE).json
+PROFILE_DIR   = profiling_results/$(PROFILE_BASE).prof
+PROFILE_VIEW  = profiling_results/$(PROFILE_BASE).by-source.txt
+PROFILE_DEV   = $(if $(filter opencl cuda,$(BACKEND)),--pass-option=-d$(GPU_DEVICE),)
+
+.PHONY: profile_eqb
+profile_eqb:
+	mkdir -p bench_jsons profiling_results
+	$(FUTHARK) bench --backend=$(BACKEND) $(PROFILE_DEV) \
+	    --entry-point=bench_solve --runs=$(PROFILE_RUNS) -P \
+	    --no-convergence-phase \
+	    --spec-file=spec_files/$(SPEC)_spec.fut \
+	    --json=$(PROFILE_JSON) \
+	    $(RUN_EQUI)
+	cd profiling_results && $(FUTHARK) profile ../$(PROFILE_JSON)
+	python3 profiling_results/profile_join.py $(PROFILE_DIR)/bench_solve \
+	    --by-source --top $(PROFILE_TOP) --out $(PROFILE_VIEW)
+	@echo "wrote $(PROFILE_VIEW)"
+
+# =========================================================
+# Amdahl thread-scaling sweep (multicore backend, manual harness)
+#
+# Mirrors the bench_solve-%-M.tm / .tmstats / .dat pipeline but adds a
+# `-t<T>` suffix encoding thread count. Pattern target:
+#
+#   amdahl-<n>-<c>-<Ax>-<acc0>-<trans>-t<T>-M.tm
+#
+# Recipe parses $* into the program input (n c Ax acc0 trans) and the
+# thread count T, then runs the compiled binary with --num-threads=T.
+#
+# Inputs:
+#   AMDAHL_SIZES    space-separated list of `c` values     (default: 13 25)
+#   AMDAHL_THREADS  space-separated list of thread counts  (default: 1 2 4 8 16 24 32 48 64 96)
+#   RUN_EQUI        the .fut to benchmark                  (default: run_equilibrium.fut)
+#   VAL_NAME        tag for the run                        (default: default)
+#   BENCH_RUNS      passed via -r to the binary            (default: 5)
+#
+# Output:
+#   amdahl/<basename RUN_EQUI>-<VAL_NAME>.dat
+#   columns: n c Ax acc0 trans threads backend mean stdev se
+#   (intermediate .tm / .tmstats / .out files also live under amdahl/)
+#
+# Usage:
+#   make amdahl VAL_NAME=futhark01 RUN_EQUI=run_equilibrium_man.fut
+#   make amdahl AMDAHL_SIZES="25" AMDAHL_THREADS="1 8 24"
+# =========================================================
+
+AMDAHL_DIR     := amdahl
+AMDAHL_SIZES   ?= 13 25
+AMDAHL_THREADS ?= 1 2 4 8 16 24 32 48 64 96
+AMDAHL_TUPLES   = $(foreach c,$(AMDAHL_SIZES),$(foreach t,$(AMDAHL_THREADS),2-$c-25-5-0-t$t))
+AMDAHL_FILES    = $(AMDAHL_TUPLES:%=$(AMDAHL_DIR)/%-M.tmstats)
+AMDAHL_DAT      = $(AMDAHL_DIR)/$(basename $(RUN_EQUI))-$(VAL_NAME).dat
+
+$(AMDAHL_DIR)/%-M.tm: run_equilibrium-m.exe
+	@mkdir -p $(AMDAHL_DIR)
+	input=$$(echo "$*" | sed -E 's/-t[0-9]+$$//' | tr '-' ' '); \
+	threads=$$(echo "$*" | sed -E 's/.*-t([0-9]+)$$/\1/'); \
+	echo "$$input" | ./$< -e bench_solve -r $(BENCH_RUNS) --num-threads $$threads -t $@ > $(AMDAHL_DIR)/$*-m.out
+
+$(AMDAHL_DAT): $(AMDAHL_FILES)
+	@mkdir -p $(AMDAHL_DIR)
+	rm -f $@
+	for n in $^ ; do \
+	     /bin/echo -n $$(basename $$n) | sed 's/[a-z_]*//g' | sed 's/[-.]/ /g' >> $@ ; \
+	     cat $$n >> $@ ; \
+	done
+
+.PHONY: amdahl
+amdahl: $(AMDAHL_DAT)
+	@echo "wrote $(AMDAHL_DAT)"

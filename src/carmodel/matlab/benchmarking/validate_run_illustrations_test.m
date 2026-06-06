@@ -16,6 +16,11 @@ for c = 1:2:13
     write_validation(out_dir, n, c, abar, acc_0, transcost, sol, mp, s);
 end
 
+for c = 17:4:21
+    [sol, mp, s] = bench_run_illustrations(n, c, abar, acc_0, transcost);
+    write_validation(out_dir, n, c, abar, acc_0, transcost, sol, mp, s);
+end
+
 c = 7;
 
 for n = 2:1:6

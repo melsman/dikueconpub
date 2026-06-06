@@ -172,7 +172,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let (delta, _, _) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
         let ctp : [ns][ns]t = trm.ctp_tau tr delta
         in ctp
-        
+    
     def ctp_from_utils [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) (tr: trm.transition[ns])
         (utils: trm.utility[ns][nd])  (ev_s: trm.ev[ns]) : [ns][ns]t =
         let (ev, v) = trm.bellman0 mp utils tr ev_s
@@ -336,6 +336,17 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             )
         )
 
+    def dv_dprice_dev [n][c][Ax][ns][nd]
+          (mp: trm.mp[n][c][Ax][ns][nd])
+          (tr: trm.transition[ns])
+          (utils: trm.utility[ns][nd])
+          (ev: trm.ev[ns])
+          (du: [c][Ax-1][ns][nd]t)
+          (dev: [c][Ax-1][ns]t) : [c][Ax-1][ns][nd]t =
+      let g = \(u, e) -> (trm.bellman0 mp u tr e).1
+      in tabulate_2d c (Ax-1) (\ct a ->
+          jvp g (utils, ev) (du[ct][a], dev[ct][a]))
+
     -------------------------------------.-------------------------------------
     ------ Derivaties - dccp_dprice - derivatives of choice probabilities -----
     ---------------------------------------------------------------------------
@@ -350,6 +361,16 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let g = \(u, e) -> ccp_from_utils mp tr u e
         in tabulate_2d c (Ax-1) (\cartype age ->
             jvp g (utils, ev) (du[cartype][age], dev[cartype][age]))
+
+     def dccp_dprices_from_dev_dv [n][c][Ax][ns][nd]
+          (mp: trm.mp[n][c][Ax][ns][nd])
+          (v: [ns][nd]t)
+          (ev: trm.ev[ns])
+          (dv: [c][Ax-1][ns][nd]t)
+          (dev: [c][Ax-1][ns]t) : [c][Ax-1][ns][nd]t =
+      let g = \(vs, e) -> trm.ccp_tau mp vs e
+      in tabulate_2d c (Ax-1) (\ct a ->
+          jvp g (v, ev) (dv[ct][a], dev[ct][a]))
 
     def ccp_dprice_full [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (p: trm.prices[c][Ax])
         (tau: i64) (ev: trm.ev[ns])  : [c][Ax-1][ns][nd]t =
@@ -397,6 +418,12 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let g = \(u, e) -> ctp_from_utils mp tr u e
         in tabulate_2d c (Ax-1) (\cartype age ->
             jvp g (utils, ev) (du[cartype][age], dev[cartype][age]))
+
+    def dctp_dprices_from_dccp [n][c][Ax][ns][nd] (mp: mp[n][c][Ax][ns][nd]) (tr: trm.transition[ns]) (ccp: [ns][nd]t) (dccp: [c][Ax-1][ns][nd]t) : [c][Ax-1][ns][ns]t =
+        let g = \cc ->(let (delta, _, _) = trm.trade_transition mp cc
+            in trm.ctp_tau tr delta)
+        in tabulate_2d c (Ax-1) (\cartype age ->
+            jvp g ccp (dccp[cartype][age]))
 
     def ctp_dprice_full [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (p: trm.prices[c][Ax])
         (tau: i64) (ev: trm.ev[ns])  : [c][Ax-1][ns][ns]t =
@@ -573,6 +600,44 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
 
         in ded_dprice_man ccp dccp erg erg_dprice ccp_scrap dccp_scrap
 
+    def ded_dprice_tau_full_ad_alt [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (tau: i64) (ev:[ns]t)
+        (v:[ns][nd]t) (p:trm.prices[c][Ax]) : [c][Ax-1][c][Ax-1]t =
+        let utils : trm.utility [ns][nd] = trm.utility mp p tau
+        let tr = trm.age_transition mp
+        let ctp = ctp_from_utils mp tr utils ev
+        let ccp_scrap = trm.ccp_scrap_tau mp p tau
+        let ccp = trm.ccp_tau mp v ev
+        let du = utility_dprice_ad mp p tau
+        let dbellman = dbellman_prices_ad mp utils tr ev du
+        let dev = dev_fixed_point_dprice mp ctp dbellman
+        let dv = dv_dprice_dev mp tr utils ev du dev
+        let dccp = dccp_dprices_from_dev_dv mp v ev dv dev
+        let dctp = dctp_dprices_from_dccp mp tr ccp dccp
+        let (erg, erg_dprice) = ergodic_with_dprice ctp dctp
+        let dccp_scrap = ccp_scrap_dprice_ad mp p tau
+
+        in ded_dprice_man ccp dccp erg erg_dprice ccp_scrap dccp_scrap
+
+
+    --- Everything is AD except for the implicit differentation stuff and dv - the latter is the main distinction from full_ad
+    def ded_dprice_tau_almost_full_ad [n][c][Ax][ns][nd] (mp: trm.mp[n][c][Ax][ns][nd]) (tau: i64) (ev:[ns]t)
+        (v:[ns][nd]t) (p:trm.prices[c][Ax]) : [c][Ax-1][c][Ax-1]t =
+        let utils : trm.utility [ns][nd] = trm.utility mp p tau
+        let tr = trm.age_transition mp
+        let ctp = ctp_from_utils mp tr utils ev
+        let ccp_scrap = trm.ccp_scrap_tau mp p tau
+        let ccp = trm.ccp_tau mp v ev
+        let du = utility_dprice_ad mp p tau
+        let dbellman = dbellman_prices_ad mp utils tr ev du
+        let dev = dev_fixed_point_dprice mp ctp dbellman
+        let dv = dv_dprice_man mp tr du dev
+        let dccp = dccp_dprices_from_dev_dv mp v ev dv dev
+        let dctp = dctp_dprices_from_dccp mp tr ccp dccp
+        let (erg, erg_dprice) = ergodic_with_dprice ctp dctp
+        let dccp_scrap = ccp_scrap_dprice_ad mp p tau
+
+        in ded_dprice_man ccp dccp erg erg_dprice ccp_scrap dccp_scrap
+
     -------- Flattening function for testing --------
     def flatten_ded [c][Ax] (ded: [c][Ax-1][c][Ax-1]t) : [c*(Ax-1)][c*(Ax-1)]t =
         map flatten (flatten ded)
@@ -676,6 +741,88 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         let deds = #[sequential_outer] map2 (\evs tau -> 
             let (ev, v, _, _, _) = evs
             in ded_dprice_tau_full_ad mp tau ev v p) evs (iota n)
+
+        let deds : [n][c][Ax-1][c][Ax-1]t = map2 (\ded tw -> map (map (map (map (\x -> R.(x * tw))))) ded) deds mp.tw
+        let zeroes : [c][Ax-1][c][Ax-1]t = tabulate_2d c (Ax-1) (\_ _ -> replicate c (replicate (Ax-1) (R.i64 0)))
+        let ded = reduce (map2 (map2 (map2 (map2 (\x y -> R.(x + y)))))) zeroes deds
+
+        let edf (evs:([ns]t, [ns][nd]t, i64, i64, i64)) (tau:i64) =
+            let (ev, v, _, _, _) = evs
+            let tr = trm.age_transition mp
+            let ccp_scrap_tau = trm.ccp_scrap_tau mp p tau
+            let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+            let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+            let (delta, deltaK_diag, deltaT) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
+            let ctp : [ns][ns]t = trm.ctp_tau tr delta
+            let q_tau : [ns]t = ergodic ctp
+            in ed_tau q_tau deltaK_diag deltaT mp ccp_scrap_tau
+
+        let edfs = map2 edf evs (iota n)
+        let edfs_scaled = map2 (\x w -> map (map (\y -> R.(y * w))) x) edfs mp.tw |> reduce (map2 (map2 (\x y -> R.(x + y)))) (replicate c (replicate (Ax-1) (R.i64 0)))
+
+        let (_, _, sa_iters, nk_iters, rtrips) = unzip5 evs
+
+
+        in (edfs_scaled, ded, sa_iters, nk_iters, rtrips)
+
+    -------- Function from getting ed and ed_dprice from mp, p and sa_max - alternative --------
+    def ed_ded_price_all_full_ad_alt [n][c][Ax][ns][nd] (mp:trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (p:trm.prices[c][Ax]) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t, [n]i64, [n]i64, [n]i64) =
+        let sol_evs (tau:i64) : ([ns]t, [ns][nd]t, i64, i64, i64) =
+            let utils : trm.utility [ns][nd] = trm.utility mp p tau
+            let tr = trm.age_transition mp
+            let ev0 = trm.ev0 mp
+            let f = trm.bellmanJ mp utils tr
+            let param = dps.default
+            let param = param with sa_max = sa_max
+            let {res=ev,jac=_,conv=_,iter_sa=sa_iters,iter_nk=nk_iters,rtrips=rtrips,tol=_} = dps.poly f ev0 param (mp.bet)
+            let (_, v) = trm.bellman0 mp utils tr ev
+            in (ev, v, sa_iters, nk_iters, rtrips)
+
+        let evs = #[sequential_outer] map sol_evs (iota n)
+        let deds = #[sequential_outer] map2 (\evs tau -> 
+            let (ev, v, _, _, _) = evs
+            in ded_dprice_tau_full_ad_alt mp tau ev v p) evs (iota n)
+
+        let deds : [n][c][Ax-1][c][Ax-1]t = map2 (\ded tw -> map (map (map (map (\x -> R.(x * tw))))) ded) deds mp.tw
+        let zeroes : [c][Ax-1][c][Ax-1]t = tabulate_2d c (Ax-1) (\_ _ -> replicate c (replicate (Ax-1) (R.i64 0)))
+        let ded = reduce (map2 (map2 (map2 (map2 (\x y -> R.(x + y)))))) zeroes deds
+
+        let edf (evs:([ns]t, [ns][nd]t, i64, i64, i64)) (tau:i64) =
+            let (ev, v, _, _, _) = evs
+            let tr = trm.age_transition mp
+            let ccp_scrap_tau = trm.ccp_scrap_tau mp p tau
+            let ccp : [ns][nd]t = trm.ccp_tau mp v ev
+            let ccp = map (map (\x -> if R.isnan x then R.i64 0 else x)) ccp
+            let (delta, deltaK_diag, deltaT) : ([ns][ns]t, [ns]t, [ns][ns]t) = trm.trade_transition mp ccp
+            let ctp : [ns][ns]t = trm.ctp_tau tr delta
+            let q_tau : [ns]t = ergodic ctp
+            in ed_tau q_tau deltaK_diag deltaT mp ccp_scrap_tau
+
+        let edfs = map2 edf evs (iota n)
+        let edfs_scaled = map2 (\x w -> map (map (\y -> R.(y * w))) x) edfs mp.tw |> reduce (map2 (map2 (\x y -> R.(x + y)))) (replicate c (replicate (Ax-1) (R.i64 0)))
+
+        let (_, _, sa_iters, nk_iters, rtrips) = unzip5 evs
+
+
+        in (edfs_scaled, ded, sa_iters, nk_iters, rtrips)
+
+    -------- Function from getting ed and ed_dprice from mp, p and sa_max - everything is ad except dv --------
+    def ed_ded_price_all_almost_full_ad [n][c][Ax][ns][nd] (mp:trm.mp[n][c][Ax][ns][nd]) (sa_max:i64) (p:trm.prices[c][Ax]) : ([c][Ax-1]t, [c][Ax-1][c][Ax-1]t, [n]i64, [n]i64, [n]i64) =
+        let sol_evs (tau:i64) : ([ns]t, [ns][nd]t, i64, i64, i64) =
+            let utils : trm.utility [ns][nd] = trm.utility mp p tau
+            let tr = trm.age_transition mp
+            let ev0 = trm.ev0 mp
+            let f = trm.bellmanJ mp utils tr
+            let param = dps.default
+            let param = param with sa_max = sa_max
+            let {res=ev,jac=_,conv=_,iter_sa=sa_iters,iter_nk=nk_iters,rtrips=rtrips,tol=_} = dps.poly f ev0 param (mp.bet)
+            let (_, v) = trm.bellman0 mp utils tr ev
+            in (ev, v, sa_iters, nk_iters, rtrips)
+
+        let evs = #[sequential_outer] map sol_evs (iota n)
+        let deds = #[sequential_outer] map2 (\evs tau -> 
+            let (ev, v, _, _, _) = evs
+            in ded_dprice_tau_almost_full_ad mp tau ev v p) evs (iota n)
 
         let deds : [n][c][Ax-1][c][Ax-1]t = map2 (\ded tw -> map (map (map (map (\x -> R.(x * tw))))) ded) deds mp.tw
         let zeroes : [c][Ax-1][c][Ax-1]t = tabulate_2d c (Ax-1) (\_ _ -> replicate c (replicate (Ax-1) (R.i64 0)))

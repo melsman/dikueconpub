@@ -1,0 +1,1 @@
+{"run_equilibrium.fut:bench_solve":{"datasets":{"#0 (\"2i64 3i64 25i64 5.0f64 0.0f64\")":{"bytes":{"default space":0,"space 'device'":59642888},"runtimes":[829866]}}}}
