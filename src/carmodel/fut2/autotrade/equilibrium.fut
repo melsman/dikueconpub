@@ -225,6 +225,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             let row = cartype*Ax + age
             --- The first 1 added in col is because the first decision is keeping, and the reason (age+1) is used
             --- is because that in decisions, cars range from age 0 to Ax-1, but in states, they range from 1 + Ax.
+            --- Can probably be replaced with rotate.
             let col = 1 + cartype*Ax + (age+1)
             --- sell-price enters utility both directly (mum*psell) and via ev_scrap (whose derivative is -mum*ccp_scrap).
             let sell_mu = R.(mu * (i64 1 - ccp_scrap[row]))
@@ -456,6 +457,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
             --- Construct ddelta[i][j]:
             --- For car state j = ct*Ax + age, the decision that leads there is
             ---   d = 1 + ct*Ax + ((age+1) % Ax)   (from the rotate-1 in trade_transition)
+            --- age+1 can probably be replaced with a rotate.
             --- For nocar j = ns-1, the decision is purge = nd-1.
             let ddelta : [ns][ns]t = tabulate_2d ns ns (\i j ->
                 let d = if j >= ns - 1 then nd - 1
@@ -506,6 +508,7 @@ module equilibrium (R:real) (trm:trmodel with t = R.t) = {
         tabulate_2d c (Ax-1) (\m_ct m_age ->
             let owned_car = m_ct*Ax + m_age
             --- Decision of car a+1 responds to state a.
+            --- Can probably be replaced with a rotate.
             let buycol = 1 + m_ct*Ax + (m_age+1)
             let keep_survive = R.(i64 1 - ccp[owned_car,0])
             let no_scrap = R.(i64 1 - ccp_scrap[owned_car])
